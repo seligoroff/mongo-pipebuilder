@@ -72,11 +72,18 @@ class TestGroupValidation:
         pipeline = builder.group({}, {"count": {"$sum": 1}}).build()
         assert pipeline == [{"$group": {"_id": {}, "count": {"$sum": 1}}}]
 
-    def test_group_invalid_group_by_type_raises_error(self):
-        """Test that group(123, {}) raises TypeError."""
+    def test_group_with_string_group_by(self):
+        """Test that group() accepts string for group_by (field path)."""
         builder = PipelineBuilder()
-        with pytest.raises(TypeError, match="group_by must be a dict"):
-            builder.group(123, {})
+        # String field path is valid in MongoDB
+        pipeline = builder.group("$categoryType", {"total": {"$sum": "$amount"}}).build()
+        assert pipeline == [{"$group": {"_id": "$categoryType", "total": {"$sum": "$amount"}}}]
+        
+    def test_group_empty_string_with_empty_accumulators_raises_error(self):
+        """Test that group('', {}) raises ValueError."""
+        builder = PipelineBuilder()
+        with pytest.raises(ValueError, match="group_by and accumulators cannot both be empty"):
+            builder.group("", {})
 
     def test_group_invalid_accumulators_type_raises_error(self):
         """Test that group({}, 123) raises TypeError."""

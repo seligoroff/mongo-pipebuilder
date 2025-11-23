@@ -78,7 +78,7 @@ class TestPipelineBuilder:
         assert pipeline == [{"$project": {"name": 1, "email": 1, "_id": 0}}]
 
     def test_group_stage(self):
-        """Test adding $group stage."""
+        """Test adding $group stage with dict."""
         builder = PipelineBuilder()
         pipeline = builder.group(
             group_by={"category": "$category"},
@@ -88,6 +88,21 @@ class TestPipelineBuilder:
         assert pipeline == [{
             "$group": {
                 "_id": {"category": "$category"},
+                "total": {"$sum": "$amount"}
+            }
+        }]
+
+    def test_group_stage_with_string(self):
+        """Test adding $group stage with string field path."""
+        builder = PipelineBuilder()
+        pipeline = builder.group(
+            group_by="$categoryType",
+            accumulators={"total": {"$sum": "$amount"}}
+        ).build()
+        
+        assert pipeline == [{
+            "$group": {
+                "_id": "$categoryType",
                 "total": {"$sum": "$amount"}
             }
         }]

@@ -158,36 +158,47 @@ class PipelineBuilder:
             self._stages.append({"$project": fields})
         return self
 
-    def group(self, group_by: Dict[str, Any], accumulators: Dict[str, Any]) -> Self:
+    def group(self, group_by: Union[str, Dict[str, Any], Any], accumulators: Dict[str, Any]) -> Self:
         """
         Add a $group stage for grouping documents.
         
         Args:
-            group_by: Expression for grouping (becomes _id)
+            group_by: Expression for grouping (becomes _id). Can be:
+                     - A string (field path, e.g., "$category")
+                     - A dict (composite key, e.g., {"category": "$category"})
+                     - Any other value (null, number, etc.)
             accumulators: Dictionary with accumulators (sum, avg, count, etc.)
             
         Returns:
             Self for method chaining
             
         Raises:
-            TypeError: If arguments are not dictionaries
-            ValueError: If both group_by and accumulators are empty
+            TypeError: If accumulators is not a dictionary
+            ValueError: If both group_by and accumulators are empty (when group_by is dict/str)
             
         Example:
             >>> builder.group(
-            ...     group_by={"category": "$category"},
+            ...     group_by="$category",  # String field path
+            ...     accumulators={"total": {"$sum": "$amount"}}
+            ... )
+            >>> builder.group(
+            ...     group_by={"category": "$category"},  # Composite key
             ...     accumulators={"total": {"$sum": "$amount"}}
             ... )
         """
-        if not isinstance(group_by, dict):
-            raise TypeError(f"group_by must be a dict, got {type(group_by)}")
         if not isinstance(accumulators, dict):
             raise TypeError(f"accumulators must be a dict, got {type(accumulators)}")
         
-        # Empty group_by is technically valid in MongoDB (groups all into one document)
-        # But if both are empty, it's likely an error
-        if not group_by and not accumulators:
-            raise ValueError("group_by and accumulators cannot both be empty")
+        # Validate empty cases
+        # group_by can be None, empty string, empty dict, etc. - all are valid in MongoDB
+        # But if it's a string and empty, or dict and empty, and accumulators is also empty,
+        # it's likely an error
+        if isinstance(group_by, dict):
+            if not group_by and not accumulators:
+                raise ValueError("group_by and accumulators cannot both be empty")
+        elif isinstance(group_by, str):
+            if not group_by and not accumulators:
+                raise ValueError("group_by and accumulators cannot both be empty")
         
         group_stage = {"_id": group_by, **accumulators}
         self._stages.append({"$group": group_stage})
