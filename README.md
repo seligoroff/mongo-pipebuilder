@@ -231,6 +231,22 @@ group_index = stage_types.index("$group")
 builder.insert_at(group_index, {"$addFields": {"x": 1}})
 ```
 
+##### `validate() -> bool`
+
+Validates the pipeline before execution. Checks that:
+- Pipeline is not empty
+- `$out` and `$merge` stages are the last stages (critical MongoDB rule)
+- `$out` and `$merge` are not used together
+
+```python
+builder = PipelineBuilder()
+builder.match({"status": "active"}).validate()  # Returns True
+
+# Invalid: $out not last
+builder.add_stage({"$out": "output"}).match({"status": "active"})
+builder.validate()  # Raises ValueError: $out stage must be the last stage
+```
+
 ##### `build() -> List[Dict[str, Any]]`
 
 Returns the complete pipeline as a list of stage dictionaries.

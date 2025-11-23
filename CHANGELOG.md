@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2025-11-23
+## [0.2.1] - 2025-11-23
+
+### Added
+- Enhanced `validate()` method with critical MongoDB rule validation:
+  - Validates that `$out` and `$merge` stages are the last stages in pipeline
+  - Validates that `$out` and `$merge` are not used together
+  - Provides clear error messages with stage positions
+
+### Changed
+- Improved `validate()` method to check pipeline structure beyond empty check
+
+[0.2.1]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.2.1
+
+## [0.2.0] - 2025-11-22
 
 ### Added
 - `prepend()` - Add stage at the beginning of pipeline
@@ -28,9 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Full test coverage (96.58%)
 - Updated documentation with new methods and examples
 
-[0.2.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.2.0
 
-## [0.1.0] - 2025-11-22
+
+## [0.1.0] - 2025-11-21
 
 ### Added
 - Initial release
@@ -50,7 +63,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Examples and documentation
 
-
-
-[0.1.0]: https://github.com/yourusername/mongo-pipebuilder/releases/tag/v0.1.0
 
