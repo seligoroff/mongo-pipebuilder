@@ -1,0 +1,291 @@
+"""
+Tests for PipelineBuilder debug and analysis methods.
+
+Tests for methods from Proposal 2 (debug/validation) and Proposal 4 (pipeline analysis).
+
+Author: seligoroff
+"""
+import pytest
+from mongo_pipebuilder import PipelineBuilder
+
+
+class TestPipelineBuilderDebug:
+    """Tests for Proposal 2: Debug and validation methods."""
+
+    def test_len_empty_builder(self):
+        """Test __len__ with empty builder."""
+        builder = PipelineBuilder()
+        assert len(builder) == 0
+
+    def test_len_single_stage(self):
+        """Test __len__ with single stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        assert len(builder) == 1
+
+    def test_len_multiple_stages(self):
+        """Test __len__ with multiple stages."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        assert len(builder) == 3
+
+    def test_repr_empty_builder(self):
+        """Test __repr__ with empty builder."""
+        builder = PipelineBuilder()
+        assert repr(builder) == "PipelineBuilder(stages=0)"
+
+    def test_repr_single_stage(self):
+        """Test __repr__ with single stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        repr_str = repr(builder)
+        assert "PipelineBuilder(stages=1" in repr_str
+        assert "$match" in repr_str
+
+    def test_repr_multiple_stages(self):
+        """Test __repr__ with multiple stages (up to 3)."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        repr_str = repr(builder)
+        assert "PipelineBuilder(stages=3" in repr_str
+        assert "$match" in repr_str
+        assert "$limit" in repr_str
+        assert "$sort" in repr_str
+        assert "..." not in repr_str  # No ellipsis for 3 stages
+
+    def test_repr_many_stages(self):
+        """Test __repr__ with more than 3 stages (should show ellipsis)."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1}).skip(5)
+        repr_str = repr(builder)
+        assert "PipelineBuilder(stages=4" in repr_str
+        assert "..." in repr_str  # Should show ellipsis for more than 3 stages
+
+    def test_clear_empty_builder(self):
+        """Test clear() on empty builder."""
+        builder = PipelineBuilder()
+        result = builder.clear()
+        assert len(builder) == 0
+        assert result is builder  # Should return self for chaining
+
+    def test_clear_with_stages(self):
+        """Test clear() removes all stages."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        assert len(builder) == 3
+        
+        result = builder.clear()
+        assert len(builder) == 0
+        assert result is builder  # Should return self for chaining
+        assert builder.build() == []
+
+    def test_clear_returns_self(self):
+        """Test that clear() returns self for method chaining."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        result = builder.clear().match({"new": "status"})
+        assert len(builder) == 1
+        assert result is builder
+
+    def test_copy_empty_builder(self):
+        """Test copy() on empty builder."""
+        builder1 = PipelineBuilder()
+        builder2 = builder1.copy()
+        
+        assert builder2 is not builder1  # Different objects
+        assert len(builder2) == 0
+        assert builder2.build() == []
+
+    def test_copy_with_stages(self):
+        """Test copy() creates independent copy."""
+        builder1 = PipelineBuilder()
+        builder1.match({"status": "active"}).limit(10)
+        
+        builder2 = builder1.copy()
+        
+        # Verify copy has same stages
+        assert len(builder2) == 2
+        assert builder2.build() == builder1.build()
+        
+        # Modify copy - original should be unchanged
+        builder2.sort({"name": 1})
+        assert len(builder1) == 2  # Original unchanged
+        assert len(builder2) == 3  # Copy modified
+        
+        # Modify original - copy should be unchanged
+        builder1.skip(5)
+        assert len(builder1) == 3  # Original modified
+        assert len(builder2) == 3  # Copy unchanged (already had 3 stages)
+
+    def test_copy_independence(self):
+        """Test that copy() creates truly independent copy."""
+        builder1 = PipelineBuilder()
+        builder1.match({"status": "active"})
+        
+        builder2 = builder1.copy()
+        builder2.limit(10)
+        
+        # Verify they are independent
+        assert builder1.build() == [{"$match": {"status": "active"}}]
+        assert builder2.build() == [
+            {"$match": {"status": "active"}},
+            {"$limit": 10}
+        ]
+
+    def test_validate_empty_builder_raises_error(self):
+        """Test validate() raises ValueError on empty pipeline."""
+        builder = PipelineBuilder()
+        with pytest.raises(ValueError, match="Pipeline cannot be empty"):
+            builder.validate()
+
+    def test_validate_with_stages_returns_true(self):
+        """Test validate() returns True for valid pipeline."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        assert builder.validate() is True
+
+    def test_validate_with_multiple_stages_returns_true(self):
+        """Test validate() returns True for pipeline with multiple stages."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        assert builder.validate() is True
+
+    def test_validate_out_as_last_stage(self):
+        """Test validate() allows $out as the last stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).add_stage({"$out": "output_collection"})
+        assert builder.validate() is True
+
+    def test_validate_out_not_last_raises_error(self):
+        """Test validate() raises error if $out is not the last stage."""
+        builder = PipelineBuilder()
+        builder.add_stage({"$out": "output_collection"}).match({"status": "active"})
+        with pytest.raises(ValueError, match="\\$out stage must be the last stage"):
+            builder.validate()
+
+    def test_validate_out_in_middle_raises_error(self):
+        """Test validate() raises error if $out is in the middle of pipeline."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).add_stage({"$out": "output_collection"}).limit(10)
+        with pytest.raises(ValueError, match="\\$out stage must be the last stage"):
+            builder.validate()
+
+    def test_validate_merge_as_last_stage(self):
+        """Test validate() allows $merge as the last stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).add_stage({"$merge": {"into": "output_collection"}})
+        assert builder.validate() is True
+
+    def test_validate_merge_not_last_raises_error(self):
+        """Test validate() raises error if $merge is not the last stage."""
+        builder = PipelineBuilder()
+        builder.add_stage({"$merge": {"into": "output_collection"}}).match({"status": "active"})
+        with pytest.raises(ValueError, match="\\$merge stage must be the last stage"):
+            builder.validate()
+
+    def test_validate_both_out_and_merge_raises_error(self):
+        """Test validate() raises error if pipeline contains both $out and $merge."""
+        builder = PipelineBuilder()
+        builder.add_stage({"$out": "output1"}).add_stage({"$merge": {"into": "output2"}})
+        with pytest.raises(ValueError, match="cannot contain both \\$out and \\$merge"):
+            builder.validate()
+
+
+class TestPipelineBuilderAnalysis:
+    """Tests for Proposal 4: Pipeline analysis methods."""
+
+    def test_get_stage_types_empty_builder(self):
+        """Test get_stage_types() on empty builder."""
+        builder = PipelineBuilder()
+        assert builder.get_stage_types() == []
+
+    def test_get_stage_types_single_stage(self):
+        """Test get_stage_types() with single stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        assert builder.get_stage_types() == ["$match"]
+
+    def test_get_stage_types_multiple_stages(self):
+        """Test get_stage_types() with multiple stages."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        assert builder.get_stage_types() == ["$match", "$limit", "$sort"]
+
+    def test_get_stage_types_preserves_order(self):
+        """Test get_stage_types() preserves stage order."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).lookup(
+            from_collection="users",
+            local_field="userId",
+            foreign_field="_id",
+            as_field="user"
+        ).limit(10)
+        assert builder.get_stage_types() == ["$match", "$lookup", "$limit"]
+
+    def test_get_stage_types_with_duplicate_stages(self):
+        """Test get_stage_types() with duplicate stage types."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).match({"deleted": False}).limit(10)
+        assert builder.get_stage_types() == ["$match", "$match", "$limit"]
+
+    def test_has_stage_empty_builder(self):
+        """Test has_stage() on empty builder."""
+        builder = PipelineBuilder()
+        assert builder.has_stage("$match") is False
+
+    def test_has_stage_present(self):
+        """Test has_stage() when stage is present."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        assert builder.has_stage("$match") is True
+
+    def test_has_stage_not_present(self):
+        """Test has_stage() when stage is not present."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10)
+        assert builder.has_stage("$match") is True
+        assert builder.has_stage("$limit") is True
+        assert builder.has_stage("$group") is False
+        assert builder.has_stage("$lookup") is False
+
+    def test_has_stage_multiple_occurrences(self):
+        """Test has_stage() with multiple occurrences of same stage."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).match({"deleted": False})
+        assert builder.has_stage("$match") is True
+
+    def test_has_stage_invalid_type_raises_error(self):
+        """Test has_stage() raises TypeError for non-string argument."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        
+        with pytest.raises(TypeError, match="stage_type must be a string"):
+            builder.has_stage(123)
+        
+        with pytest.raises(TypeError, match="stage_type must be a string"):
+            builder.has_stage(None)
+        
+        with pytest.raises(TypeError, match="stage_type must be a string"):
+            builder.has_stage(["$match"])
+
+    def test_has_stage_case_sensitive(self):
+        """Test has_stage() is case sensitive."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        assert builder.has_stage("$match") is True
+        assert builder.has_stage("$MATCH") is False  # Case sensitive
+
+    def test_get_stage_types_and_has_stage_consistency(self):
+        """Test consistency between get_stage_types() and has_stage()."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"}).limit(10).sort({"name": 1})
+        
+        stage_types = builder.get_stage_types()
+        assert builder.has_stage("$match") is True
+        assert builder.has_stage("$limit") is True
+        assert builder.has_stage("$sort") is True
+        
+        # All stages from get_stage_types should return True in has_stage
+        for stage_type in stage_types:
+            assert builder.has_stage(stage_type) is True
+
