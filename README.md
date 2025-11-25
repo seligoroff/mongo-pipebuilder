@@ -1,5 +1,11 @@
 # mongo-pipebuilder
 
+[![PyPI version](https://badge.fury.io/py/mongo-pipebuilder.svg)](https://badge.fury.io/py/mongo-pipebuilder)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Test Coverage](https://img.shields.io/badge/coverage-96%25-green.svg)](https://github.com/seligoroff/mongo-pipebuilder)
+
 Type-safe, fluent MongoDB aggregation pipeline builder for Python.
 
 ## Overview
@@ -8,11 +14,11 @@ Type-safe, fluent MongoDB aggregation pipeline builder for Python.
 
 ## Features
 
-- ✅ **Type-safe**: Full type hints support with IDE autocomplete
-- ✅ **Fluent interface**: Chain methods for readable, maintainable code
-- ✅ **Zero dependencies**: Pure Python, lightweight package
-- ✅ **Extensible**: Easy to add custom stages via `add_stage()`
-- ✅ **Well tested**: Comprehensive test suite with 96%+ coverage
+- **Type-safe**: Full type hints support with IDE autocomplete
+- **Fluent interface**: Chain methods for readable, maintainable code
+- **Zero dependencies**: Pure Python, lightweight package
+- **Extensible**: Easy to add custom stages via `add_stage()`
+- **Well tested**: Comprehensive test suite with 96%+ coverage
 
 ## Installation
 
@@ -231,6 +237,22 @@ group_index = stage_types.index("$group")
 builder.insert_at(group_index, {"$addFields": {"x": 1}})
 ```
 
+##### `copy() -> PipelineBuilder`
+
+Creates an independent copy of the builder with current stages. Useful for creating immutable variants and composing pipelines.
+
+```python
+builder1 = PipelineBuilder().match({"status": "active"})
+builder2 = builder1.copy()
+builder2.limit(10)
+
+# Original unchanged
+assert len(builder1) == 1
+assert len(builder2) == 2
+```
+
+See [Composing and Reusing Pipelines](#composing-and-reusing-pipelines) for practical examples.
+
 ##### `validate() -> bool`
 
 Validates the pipeline before execution. Checks that:
@@ -312,6 +334,150 @@ pipeline = (
 )
 ```
 
+### Composing and Reusing Pipelines
+
+The `copy()` method allows you to create immutable variants of pipelines, enabling safe composition and reuse. This is useful when you need to:
+- Create multiple variants from a base pipeline
+- Compose pipelines functionally
+- Cache base pipelines safely
+- Pass pipelines to functions without side effects
+
+#### Example: Building Multiple Variants from a Base Pipeline
+
+```python
+from mongo_pipebuilder import PipelineBuilder
+
+# Base pipeline with common filtering and joining
+base_pipeline = (
+    PipelineBuilder()
+    .match({"status": "published", "deleted": False})
+    .lookup(
+        from_collection="authors",
+        local_field="authorId",
+        foreign_field="_id",
+        as_field="author"
+    )
+    .unwind("author", preserve_null_and_empty_arrays=True)
+    .project({
+        "title": 1,
+        "authorName": "$author.name",
+        "publishedAt": 1
+    })
+)
+
+# Create variants with different sorting and limits
+recent_posts = base_pipeline.copy().sort({"publishedAt": -1}).limit(10).build()
+popular_posts = base_pipeline.copy().sort({"views": -1}).limit(5).build()
+author_posts = base_pipeline.copy().match({"authorName": "John Doe"}).build()
+
+# Base pipeline remains unchanged
+assert len(base_pipeline) == 4  # Still has 4 stages
+```
+
+#### Example: Functional Composition Pattern
+
+```python
+def add_pagination(builder, page: int, page_size: int = 10):
+    """Add pagination to a pipeline."""
+    return builder.copy().skip(page * page_size).limit(page_size)
+
+def add_sorting(builder, sort_field: str, ascending: bool = True):
+    """Add sorting to a pipeline."""
+    return builder.copy().sort({sort_field: 1 if ascending else -1})
+
+# Compose pipelines functionally
+base = PipelineBuilder().match({"status": "active"})
+
+# Create different variants
+page1 = add_pagination(add_sorting(base, "createdAt"), page=0)
+page2 = add_pagination(add_sorting(base, "createdAt"), page=1)
+sorted_by_name = add_sorting(base, "name", ascending=True)
+
+# All variants are independent
+assert len(base) == 1  # Base unchanged
+assert len(page1) == 3  # match + sort + skip + limit
+```
+
+#### Example: Caching Base Pipelines
+
+```python
+from functools import lru_cache
+
+@lru_cache(maxsize=100)
+def get_base_pipeline(user_id: str):
+    """Cache base pipeline for a user."""
+    return (
+        PipelineBuilder()
+        .match({"userId": user_id, "status": "active"})
+        .lookup(
+            from_collection="profiles",
+            local_field="userId",
+            foreign_field="_id",
+            as_field="profile"
+        )
+    )
+
+# Reuse cached base pipeline with different modifications
+user_id = "12345"
+base = get_base_pipeline(user_id)
+
+# Create multiple queries from cached base
+recent = base.copy().sort({"createdAt": -1}).limit(10).build()
+by_category = base.copy().match({"category": "tech"}).build()
+with_stats = base.copy().group({"_id": "$category"}, {"count": {"$sum": 1}}).build()
+
+# Base pipeline is safely cached and reused
+```
+
+#### Example: Pipeline Factories
+
+```python
+class PipelineFactory:
+    """Factory for creating common pipeline patterns."""
+    
+    @staticmethod
+    def base_article_pipeline():
+        """Base pipeline for articles."""
+        return (
+            PipelineBuilder()
+            .match({"status": "published"})
+            .lookup(
+                from_collection="authors",
+                local_field="authorId",
+                foreign_field="_id",
+                as_field="author"
+            )
+        )
+    
+    @staticmethod
+    def with_author_filter(builder, author_name: str):
+        """Add author filter to pipeline."""
+        return builder.copy().match({"author.name": author_name})
+    
+    @staticmethod
+    def with_date_range(builder, start_date: str, end_date: str):
+        """Add date range filter to pipeline."""
+        return builder.copy().match({
+            "publishedAt": {"$gte": start_date, "$lte": end_date}
+        })
+
+# Usage
+base = PipelineFactory.base_article_pipeline()
+johns_articles = PipelineFactory.with_author_filter(base, "John Doe")
+recent_johns = PipelineFactory.with_date_range(
+    johns_articles, 
+    start_date="2024-01-01",
+    end_date="2024-12-31"
+).sort({"publishedAt": -1}).limit(10).build()
+```
+
+**Key Benefits:**
+- Safe reuse: Base pipelines remain unchanged
+- Functional composition: Build pipelines from smaller parts
+- Caching friendly: Base pipelines can be safely cached
+- No side effects: Functions can safely modify copies
+- Thread-safe: Multiple threads can use copies independently
+
 ## Development
 
 ### Project Structure
@@ -344,5 +510,9 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for development guidelines.
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+
+
+
 
 
