@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2025-11-23
+
+### Changed
+- Improved code quality and maintainability:
+  - Simplified `validate()` method by removing code duplication for `$out`/`$merge` validation
+  - Optimized `get_stage_types()` method to use `next(iter())` instead of `list().keys()[0]` for better performance
+  - Fixed docstring in `match()` method to correctly document `TypeError` instead of `ValueError`
+
+[0.2.3]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.2.3
+
 ## [0.2.2] - 2025-11-23
 
 ### Fixed

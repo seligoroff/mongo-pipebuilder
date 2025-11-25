@@ -33,8 +33,7 @@ class PipelineBuilder:
             Self for method chaining
             
         Raises:
-            TypeError: If conditions is not a dictionary
-            ValueError: If conditions is None
+            TypeError: If conditions is None or not a dictionary
             
         Example:
             >>> builder.match({"status": "active", "age": {"$gte": 18}})
@@ -636,23 +635,15 @@ class PipelineBuilder:
                 "Only one output stage is allowed."
             )
         
-        # If $out exists, it must be the last stage
-        if has_out:
-            out_index = stage_types.index("$out")
-            if out_index != len(stage_types) - 1:
-                raise ValueError(
-                    f"$out stage must be the last stage in the pipeline. "
-                    f"Found at position {out_index + 1} of {len(stage_types)}."
-                )
-        
-        # If $merge exists, it must be the last stage
-        if has_merge:
-            merge_index = stage_types.index("$merge")
-            if merge_index != len(stage_types) - 1:
-                raise ValueError(
-                    f"$merge stage must be the last stage in the pipeline. "
-                    f"Found at position {merge_index + 1} of {len(stage_types)}."
-                )
+        # Check if $out or $merge exist and validate position
+        for stage_name in ["$out", "$merge"]:
+            if stage_name in stage_types:
+                stage_index = stage_types.index(stage_name)
+                if stage_index != len(stage_types) - 1:
+                    raise ValueError(
+                        f"{stage_name} stage must be the last stage in the pipeline. "
+                        f"Found at position {stage_index + 1} of {len(stage_types)}."
+                    )
         
         return True
 
@@ -669,7 +660,7 @@ class PipelineBuilder:
             >>> builder.get_stage_types()
             ['$match', '$limit']
         """
-        return [list(stage.keys())[0] for stage in self._stages]
+        return [next(iter(stage)) for stage in self._stages]
 
     def has_stage(self, stage_type: str) -> bool:
         """
