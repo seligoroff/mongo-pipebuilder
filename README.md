@@ -269,6 +269,54 @@ builder.add_stage({"$out": "output"}).match({"status": "active"})
 builder.validate()  # Raises ValueError: $out stage must be the last stage
 ```
 
+##### `get_stage_at(index: int) -> Dict[str, Any]`
+
+Gets a specific stage from the pipeline by index. Returns a copy of the stage.
+
+```python
+builder = PipelineBuilder()
+builder.match({"status": "active"}).limit(10)
+stage = builder.get_stage_at(0)  # Returns {"$match": {"status": "active"}}
+```
+
+##### `pretty_print(indent: int = 2, ensure_ascii: bool = False) -> str`
+
+Returns a formatted JSON string representation of the pipeline. Useful for debugging.
+
+```python
+builder = PipelineBuilder()
+builder.match({"status": "active"}).limit(10)
+print(builder.pretty_print())
+# [
+#   {
+#     "$match": {
+#       "status": "active"
+#     }
+#   },
+#   {
+#     "$limit": 10
+#   }
+# ]
+```
+
+##### `to_json_file(filepath: Union[str, Path], indent: int = 2, ensure_ascii: bool = False, metadata: Optional[Dict[str, Any]] = None) -> None`
+
+Saves the pipeline to a JSON file. Useful for debugging, comparison, or versioning.
+
+```python
+builder = PipelineBuilder()
+builder.match({"status": "active"}).limit(10)
+
+# Basic usage
+builder.to_json_file("debug_pipeline.json")
+
+# With metadata
+builder.to_json_file(
+    "pipeline.json",
+    metadata={"version": "1.0", "author": "developer"}
+)
+```
+
 ##### `build() -> List[Dict[str, Any]]`
 
 Returns the complete pipeline as a list of stage dictionaries.
@@ -510,6 +558,17 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for development guidelines.
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+
+
+
+
+
+
+
+
+
+
 
 
 

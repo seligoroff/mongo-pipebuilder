@@ -6,6 +6,8 @@ Builder Pattern implementation for safe construction of MongoDB aggregation pipe
 
 Author: seligoroff
 """
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 # For compatibility with Python < 3.11
@@ -752,6 +754,106 @@ class PipelineBuilder:
         
         self._stages.insert(position, stage)
         return self
+
+    def get_stage_at(self, index: int) -> Dict[str, Any]:
+        """
+        Get a specific stage from the pipeline by index.
+        
+        Args:
+            index: Zero-based index of the stage to retrieve
+            
+        Returns:
+            Dictionary representing the stage at the given index
+            
+        Raises:
+            IndexError: If index is out of range
+            
+        Example:
+            >>> builder = PipelineBuilder()
+            >>> builder.match({"status": "active"}).limit(10)
+            >>> stage = builder.get_stage_at(0)
+            >>> stage
+            {"$match": {"status": "active"}}
+        """
+        if index < 0 or index >= len(self._stages):
+            raise IndexError(
+                f"Index {index} out of range [0, {len(self._stages)}]"
+            )
+        return self._stages[index].copy()
+
+    def pretty_print(self, indent: int = 2, ensure_ascii: bool = False) -> str:
+        """
+        Return a formatted JSON string representation of the pipeline.
+        
+        Useful for debugging and understanding pipeline structure.
+        
+        Args:
+            indent: Number of spaces for indentation (default: 2)
+            ensure_ascii: If False, non-ASCII characters are output as-is (default: False)
+            
+        Returns:
+            Formatted JSON string of the pipeline
+            
+        Example:
+            >>> builder = PipelineBuilder()
+            >>> builder.match({"status": "active"}).limit(10)
+            >>> print(builder.pretty_print())
+            [
+              {
+                "$match": {
+                  "status": "active"
+                }
+              },
+              {
+                "$limit": 10
+              }
+            ]
+        """
+        return json.dumps(self._stages, indent=indent, ensure_ascii=ensure_ascii)
+
+    def to_json_file(
+        self,
+        filepath: Union[str, Path],
+        indent: int = 2,
+        ensure_ascii: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Save the pipeline to a JSON file.
+        
+        Useful for debugging, comparison with other pipelines, or versioning.
+        
+        Args:
+            filepath: Path to the output JSON file (str or Path)
+            indent: Number of spaces for indentation (default: 2)
+            ensure_ascii: If False, non-ASCII characters are output as-is (default: False)
+            metadata: Optional metadata to include in the JSON file
+            
+        Raises:
+            IOError: If file cannot be written
+            
+        Example:
+            >>> builder = PipelineBuilder()
+            >>> builder.match({"status": "active"}).limit(10)
+            >>> builder.to_json_file("debug_pipeline.json")
+            
+            >>> # With metadata
+            >>> builder.to_json_file(
+            ...     "pipeline.json",
+            ...     metadata={"version": "1.0", "author": "developer"}
+            ... )
+        """
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        
+        output: Dict[str, Any] = {
+            "pipeline": self._stages,
+        }
+        if metadata:
+            output["metadata"] = metadata
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(output, f, indent=indent, ensure_ascii=ensure_ascii)
 
     def build(self) -> List[Dict[str, Any]]:
         """
