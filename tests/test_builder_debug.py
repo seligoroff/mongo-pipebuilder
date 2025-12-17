@@ -535,3 +535,54 @@ class TestPipelineBuilderDebugMethods:
         assert stage["$lookup"]["foreignField"] == "_id"
         assert stage["$lookup"]["as"] == "user"
 
+    def test_compare_with_no_differences(self):
+        """Test compare_with() returns 'No differences.' for identical pipelines."""
+        a = PipelineBuilder().match({"status": "active"}).limit(10)
+        b = PipelineBuilder().match({"status": "active"}).limit(10)
+        assert a.compare_with(b) == "No differences."
+
+    def test_compare_with_has_diff(self):
+        """Test compare_with() returns unified diff when pipelines differ."""
+        legacy = PipelineBuilder().match({"status": "active"})
+        new = PipelineBuilder().match({"status": "inactive"})
+        diff = new.compare_with(legacy)
+        assert diff != "No differences."
+        assert "--- new" in diff
+        assert "+++ other" in diff
+        assert "\"active\"" in diff or "active" in diff
+        assert "\"inactive\"" in diff or "inactive" in diff
+
+    def test_compare_with_invalid_other_raises(self):
+        """Test compare_with() validates 'other' argument."""
+        builder = PipelineBuilder().match({"status": "active"})
+        with pytest.raises(TypeError, match="other must be a PipelineBuilder"):
+            builder.compare_with([])  # type: ignore[arg-type]
+
+    def test_compare_with_negative_context_lines_raises(self):
+        """Test compare_with() validates context_lines."""
+        a = PipelineBuilder().match({"status": "active"})
+        b = PipelineBuilder().match({"status": "inactive"})
+        with pytest.raises(ValueError, match="context_lines cannot be negative"):
+            a.compare_with(b, context_lines=-1)
+
+    def test_pretty_print_stage_by_index(self):
+        """Test pretty_print_stage() with stage index."""
+        builder = PipelineBuilder().match({"status": "active"}).limit(10)
+        s = builder.pretty_print_stage(0)
+        parsed = json.loads(s)
+        assert parsed == {"$match": {"status": "active"}}
+
+    def test_pretty_print_stage_by_dict(self):
+        """Test pretty_print_stage() with stage dict."""
+        builder = PipelineBuilder()
+        stage = {"$limit": 5}
+        s = builder.pretty_print_stage(stage, indent=4)
+        parsed = json.loads(s)
+        assert parsed == stage
+
+    def test_pretty_print_stage_invalid_type_raises(self):
+        """Test pretty_print_stage() validates stage argument."""
+        builder = PipelineBuilder().match({"status": "active"})
+        with pytest.raises(TypeError, match="stage must be an int index or a dict"):
+            builder.pretty_print_stage("0")  # type: ignore[arg-type]
+

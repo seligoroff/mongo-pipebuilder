@@ -6,6 +6,8 @@ Builder Pattern implementation for safe construction of MongoDB aggregation pipe
 
 Author: seligoroff
 """
+import copy
+import difflib
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -189,6 +191,29 @@ class PipelineBuilder:
         """
         if not isinstance(accumulators, dict):
             raise TypeError(f"accumulators must be a dict, got {type(accumulators)}")
+
+        # Guard against a common mistake: passing {"_id": ...} as group_by.
+        # group_by should be the expression that becomes the $group _id.
+        # If users pass {"_id": expr}, MongoDB will create nested _id and later
+        # expressions like $first: "$_id" may fail because $_id becomes an object.
+        if isinstance(group_by, dict) and set(group_by.keys()) == {"_id"}:
+            inner = group_by["_id"]
+            raise ValueError(
+                "Invalid group_by: you passed a dict wrapper {'_id': ...} to PipelineBuilder.group().\n"
+                "PipelineBuilder.group(group_by=...) expects the expression that becomes $group._id.\n"
+                "\n"
+                "Did you mean one of these?\n"
+                f"- builder.group(group_by={inner!r}, accumulators=...)\n"
+                f"- builder.group(group_by={inner!r}, accumulators={{...}})  # same, explicit\n"
+                "\n"
+                "Examples:\n"
+                "- Array _id: builder.group(group_by=['$idSeason', '$idTournament'], accumulators={...})\n"
+                "- Field path: builder.group(group_by='$category', accumulators={...})\n"
+                "- Composite key: builder.group(group_by={'category': '$category'}, accumulators={...})\n"
+                "\n"
+                "Why this matters: {'_id': expr} would create a nested _id object in MongoDB, and later\n"
+                "operators like $first/$last on '$_id' may fail with: \"$first's argument must be an array, but is object\"."
+            )
         
         # Validate empty cases
         # group_by can be None, empty string, empty dict, etc. - all are valid in MongoDB
@@ -779,7 +804,8 @@ class PipelineBuilder:
             raise IndexError(
                 f"Index {index} out of range [0, {len(self._stages)}]"
             )
-        return self._stages[index].copy()
+        # Return a deep copy so callers can safely mutate nested structures
+        return copy.deepcopy(self._stages[index])
 
     def pretty_print(self, indent: int = 2, ensure_ascii: bool = False) -> str:
         """
@@ -810,6 +836,36 @@ class PipelineBuilder:
             ]
         """
         return json.dumps(self._stages, indent=indent, ensure_ascii=ensure_ascii)
+
+    def pretty_print_stage(
+        self,
+        stage: Union[int, Dict[str, Any]],
+        indent: int = 2,
+        ensure_ascii: bool = False,
+    ) -> str:
+        """
+        Return a formatted JSON string representation of a single stage.
+
+        Args:
+            stage: Stage index (0-based) or a stage dict
+            indent: Number of spaces for indentation (default: 2)
+            ensure_ascii: If False, non-ASCII characters are output as-is (default: False)
+
+        Returns:
+            Formatted JSON string of the stage
+
+        Raises:
+            TypeError: If stage is not an int or dict
+            IndexError: If stage is an int out of range
+        """
+        if isinstance(stage, int):
+            stage_dict = self.get_stage_at(stage)
+        elif isinstance(stage, dict):
+            stage_dict = copy.deepcopy(stage)
+        else:
+            raise TypeError(f"stage must be an int index or a dict, got {type(stage)}")
+
+        return json.dumps(stage_dict, indent=indent, ensure_ascii=ensure_ascii)
 
     def to_json_file(
         self,
@@ -854,6 +910,52 @@ class PipelineBuilder:
         
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=indent, ensure_ascii=ensure_ascii)
+
+    def compare_with(self, other: "PipelineBuilder", context_lines: int = 3) -> str:
+        """
+        Compare this pipeline with another pipeline and return a unified diff.
+        
+        This is useful when migrating legacy pipelines (e.g., templates) to builder code.
+        
+        Args:
+            other: Another PipelineBuilder instance to compare with
+            context_lines: Number of context lines in the unified diff (default: 3)
+        
+        Returns:
+            Unified diff as a string. Returns "No differences." if pipelines are identical.
+        
+        Raises:
+            TypeError: If other is not a PipelineBuilder
+            ValueError: If context_lines is negative
+        
+        Example:
+            >>> legacy = PipelineBuilder().match({"a": 1})
+            >>> new = PipelineBuilder().match({"a": 2})
+            >>> print(new.compare_with(legacy))
+        """
+        if not isinstance(other, PipelineBuilder):
+            raise TypeError(f"other must be a PipelineBuilder, got {type(other)}")
+        if not isinstance(context_lines, int):
+            raise TypeError(f"context_lines must be an int, got {type(context_lines)}")
+        if context_lines < 0:
+            raise ValueError("context_lines cannot be negative")
+
+        a = json.dumps(
+            self.build(),
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        ).splitlines(keepends=True)
+        b = json.dumps(
+            other.build(),
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        ).splitlines(keepends=True)
+
+        diff = difflib.unified_diff(a, b, fromfile="new", tofile="other", n=context_lines)
+        out = "".join(diff)
+        return out if out else "No differences."
 
     def build(self) -> List[Dict[str, Any]]:
         """

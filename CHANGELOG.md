@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-12-17
+
+### Added
+- `compare_with()` - Generate a unified diff between two pipelines (useful for legacy vs builder migrations)
+- `pretty_print_stage()` - Pretty-print a single stage by index or by dict
+
+### Changed
+- `group()` now rejects `group_by={"_id": ...}` with a helpful `ValueError` explaining the correct usage (prevents nested `_id` mistakes)
+- `get_stage_at()` now returns a deep copy of the stage to avoid accidental mutation of builder internals
+
+### Fixed
+- Updated README examples to reflect correct `group(group_by=...)` usage
+- Added best practice docs for array `_id` after `$group` (prefer `$arrayElemAt` and materialize fields)
+
+[0.3.1]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.3.1
+
 ## [0.3.0] - 2025-12-16
 
 ### Added

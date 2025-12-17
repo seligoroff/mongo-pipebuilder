@@ -91,6 +91,12 @@ class TestGroupValidation:
         with pytest.raises(TypeError, match="accumulators must be a dict"):
             builder.group({}, 123)
 
+    def test_group_nested_id_wrapper_raises_error(self):
+        """Test that group({'_id': ...}, ...) raises ValueError with guidance."""
+        builder = PipelineBuilder()
+        with pytest.raises(ValueError, match="Invalid group_by: you passed a dict wrapper"):
+            builder.group({"_id": ["$a", "$b"]}, {"count": {"$sum": 1}})
+
 
 class TestUnwindValidation:
     """Tests for $unwind stage validation."""

@@ -95,7 +95,7 @@ class TestInsertAt:
     def test_insert_at_middle(self):
         """Test insert_at() inserts in the middle."""
         builder = PipelineBuilder()
-        builder.match({"status": "active"}).group({"_id": "$category"}, {"count": {"$sum": 1}})
+        builder.match({"status": "active"}).group("$category", {"count": {"$sum": 1}})
         builder.insert_at(1, {"$sort": {"name": 1}})
         
         pipeline = builder.build()
@@ -188,7 +188,7 @@ class TestInsertAt:
         builder.match({"status": "active"})
         builder.lookup("users", "userId", "_id", "user")
         builder.unwind("user")
-        builder.group({"_id": "$category"}, {"count": {"$sum": 1}})
+        builder.group("$category", {"count": {"$sum": 1}})
         
         # Insert $addFields before $group
         builder.insert_at(3, {"$addFields": {"categoryUpper": {"$toUpper": "$category"}}})
@@ -224,7 +224,7 @@ class TestPrependAndInsertAtIntegration:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         builder.lookup("users", "userId", "_id", "user")
-        builder.group({"_id": "$category"}, {"count": {"$sum": 1}})
+        builder.group("$category", {"count": {"$sum": 1}})
         
         # Find position of $group and insert before it
         stage_types = builder.get_stage_types()

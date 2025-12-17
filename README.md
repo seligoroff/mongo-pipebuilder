@@ -224,7 +224,7 @@ builder.prepend({"$match": {"deleted": False}})
 Inserts a stage at a specific position (0-based index) in the pipeline.
 
 ```python
-builder.match({"status": "active"}).group({"_id": "$category"}, {"count": {"$sum": 1}})
+builder.match({"status": "active"}).group("$category", {"count": {"$sum": 1}})
 builder.insert_at(1, {"$sort": {"name": 1}})
 # Pipeline: [{"$match": {...}}, {"$sort": {...}}, {"$group": {...}}]
 ```
@@ -299,6 +299,15 @@ print(builder.pretty_print())
 # ]
 ```
 
+##### `pretty_print_stage(stage: Union[int, Dict[str, Any]], indent: int = 2, ensure_ascii: bool = False) -> str`
+
+Returns a formatted JSON string representation of a single stage (by index or by dict).
+
+```python
+builder = PipelineBuilder().match({"status": "active"}).limit(10)
+print(builder.pretty_print_stage(0))  # Prints the $match stage
+```
+
 ##### `to_json_file(filepath: Union[str, Path], indent: int = 2, ensure_ascii: bool = False, metadata: Optional[Dict[str, Any]] = None) -> None`
 
 Saves the pipeline to a JSON file. Useful for debugging, comparison, or versioning.
@@ -315,6 +324,17 @@ builder.to_json_file(
     "pipeline.json",
     metadata={"version": "1.0", "author": "developer"}
 )
+```
+
+##### `compare_with(other: PipelineBuilder, context_lines: int = 3) -> str`
+
+Returns a unified diff between two pipelines (useful for comparing “new” builder pipelines vs legacy/template pipelines).
+
+```python
+legacy = PipelineBuilder().match({"status": "active"}).limit(10)
+new = PipelineBuilder().match({"status": "inactive"}).limit(10)
+
+print(new.compare_with(legacy))
 ```
 
 ##### `build() -> List[Dict[str, Any]]`
@@ -472,10 +492,38 @@ base = get_base_pipeline(user_id)
 # Create multiple queries from cached base
 recent = base.copy().sort({"createdAt": -1}).limit(10).build()
 by_category = base.copy().match({"category": "tech"}).build()
-with_stats = base.copy().group({"_id": "$category"}, {"count": {"$sum": 1}}).build()
+with_stats = base.copy().group("$category", {"count": {"$sum": 1}}).build()
 
 # Base pipeline is safely cached and reused
 ```
+
+## Best Practices
+
+### Array `_id` after `$group`: prefer `$arrayElemAt` and materialize fields
+
+If you use `$group` with an array `_id` (e.g. `["_idSeason", "_idTournament"]`), avoid relying on `$_id` later in the pipeline.
+Instead, **extract elements with `$arrayElemAt` and store them into explicit fields**, then use those fields in subsequent stages.
+
+```python
+pipeline = (
+    PipelineBuilder()
+    .group(
+        group_by=["$idSeason", "$idTournament"],
+        accumulators={"idTeams": {"$addToSet": "$idTeam"}},
+    )
+    .project({
+        "idSeason": {"$arrayElemAt": ["$_id", 0]},
+        "idTournament": {"$arrayElemAt": ["$_id", 1]},
+        "idTeams": 1,
+        # Optional: preserve array _id explicitly if you really need it later
+        # "_id": "$_id",
+    })
+    .build()
+)
+```
+
+This pattern reduces surprises and helps avoid errors like:
+`$first's argument must be an array, but is object`.
 
 #### Example: Pipeline Factories
 
