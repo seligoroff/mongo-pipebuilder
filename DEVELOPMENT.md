@@ -6,7 +6,7 @@ This document provides guidelines for developing and contributing to `mongo-pipe
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.9 or higher
 - pip
 - (Optional) virtual environment
 

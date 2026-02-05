@@ -1,7 +1,7 @@
 # mongo-pipebuilder
 
 [![PyPI version](https://badge.fury.io/py/mongo-pipebuilder.svg)](https://badge.fury.io/py/mongo-pipebuilder)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Test Coverage](https://img.shields.io/badge/coverage-96%25-green.svg)](https://github.com/seligoroff/mongo-pipebuilder)
@@ -253,6 +253,19 @@ Adds a custom stage for advanced use cases.
     "categories": [{"$group": {"_id": "$category"}}],
     "total": [{"$count": "count"}]
 }})
+```
+
+##### `add_stages(stages: Iterable[Dict[str, Any]]) -> Self`
+
+Adds multiple stages at once (e.g. a subpipeline from another builder). Empty dicts are skipped. Useful to avoid loops when inserting a ready-made list of stages.
+
+```python
+# From a list
+.add_stages([{"$match": {"level": "error"}}, {"$limit": 100}])
+
+# From another builder
+sub = PipelineBuilder().match({"source": "api"}).project({"name": 1})
+.add_stages(sub.build())
 ```
 
 ##### `prepend(stage: Dict[str, Any]) -> Self`

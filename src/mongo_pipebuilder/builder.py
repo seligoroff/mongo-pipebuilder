@@ -10,9 +10,9 @@ import copy
 import difflib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
-# For compatibility with Python < 3.11 and mypy with python_version 3.8
+# For compatibility with Python < 3.11 (Self is in typing from 3.11)
 from typing_extensions import Self
 
 
@@ -684,6 +684,35 @@ class PipelineBuilder:
         """
         if stage:
             self._stages.append(stage)
+        return self
+
+    def add_stages(self, stages: Iterable[Dict[str, Any]]) -> Self:
+        """
+        Add multiple pipeline stages at once (e.g. a subpipeline from another builder).
+
+        Empty dict stages are skipped, as with add_stage. Each element must be a
+        dictionary.
+
+        Args:
+            stages: Iterable of stage dictionaries (e.g. list, or result of .build()).
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            TypeError: If stages is None or any element is not a dictionary.
+
+        Example:
+            >>> builder.add_stages([{"$match": {"x": 1}}, {"$limit": 10}])
+            >>> builder.add_stages(other_builder.build())
+        """
+        if stages is None:
+            raise TypeError("stages must not be None")
+        for stage in stages:
+            if not isinstance(stage, dict):
+                raise TypeError("All stages must be dictionaries")
+            if stage:
+                self._stages.append(stage)
         return self
 
     def __len__(self) -> int:
