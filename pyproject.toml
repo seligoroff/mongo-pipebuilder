@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mongo-pipebuilder"
-version = "0.3.1"
+version = "0.4.0"
 description = "Type-safe, fluent MongoDB aggregation pipeline builder"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "typing_extensions>=4.0.0; python_version<'3.11'",
 ]
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "seligoroff", email = "seligoroff@gmail.com"}
 ]
@@ -19,7 +19,6 @@ keywords = ["mongodb", "aggregation", "pipeline", "builder", "query"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -51,12 +50,13 @@ addopts = [
     "--cov=src/mongo_pipebuilder",
     "--cov-report=term-missing",
     "--cov-report=html:tests/htmlcov",
-    "--cov-report=json:coverage.json",
-    "--cov-report=xml:coverage.xml",
+    "--cov-report=json:tests/coverage.json",
+    "--cov-report=xml:tests/coverage.xml",
     "--cov-branch",
 ]
 
 [tool.coverage.run]
+data_file = "tests/.coverage"
 source = ["src/mongo_pipebuilder"]
 omit = [
     "*/tests/*",
@@ -99,3 +99,44 @@ warn_no_return = true
 module = "tests.*"
 disallow_untyped_defs = false
 
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+# В Ruff лучше использовать .gitignore, но если нужно строго как было:
+#respect-gitignore = false
+#extend-exclude = ["venv", "deprecated"]
+
+[tool.ruff.lint]
+# E, F — база (Flake8), B — Bugbear (ошибки логики), I — Isort (импорты)
+select = ["E", "F", "W", "B", "C901", "I", "Q", "T20", "COM"]
+ignore = [
+    "B008",    # Аргументы-функции в дефолтных значениях (часто нужно для FastAPI Depends)
+    "E266",    # Слишком много # в комментариях
+    "E712",    # Сравнение с True через == (иногда нужно в SQLAlchemy)    
+    "COM812",  # Конфликт с форматтером (запятые)
+    "COM819",  # Trailing comma в type hints
+    "E203",    # Пробел перед двоеточием (совместимость с Black)
+    "Q003",    # Кавычки в f-строках
+    "PT006",   # Типы параметров pytest
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Игнорируем специфичные ошибки в тестах, скриптах, примерах и инициализации
+"tests/*" = ["T201"]
+"examples/*" = ["T201"]
+
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.isort]
+# Автоматически определяет внутренние модули, чтобы не мешать их с pip-пакетами
+known-first-party = [
+    "api", "cli", "constants", "core", "helpers", 
+    "infrastructure", "schemas", "scripts", "services", 
+    "startup", "tasks", "tests"
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

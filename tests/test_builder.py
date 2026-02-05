@@ -3,7 +3,6 @@ Tests for PipelineBuilder.
 
 Author: seligoroff
 """
-import pytest
 from mongo_pipebuilder import PipelineBuilder
 
 
@@ -36,7 +35,7 @@ class TestPipelineBuilder:
             foreign_field="_id",
             as_field="user"
         ).build()
-        
+
         assert len(pipeline) == 1
         assert "$lookup" in pipeline[0]
         assert pipeline[0]["$lookup"]["from"] == "users"
@@ -55,7 +54,7 @@ class TestPipelineBuilder:
             as_field="user",
             pipeline=nested_pipeline
         ).build()
-        
+
         assert pipeline[0]["$lookup"]["pipeline"] == nested_pipeline
 
     def test_add_fields_stage(self):
@@ -64,7 +63,7 @@ class TestPipelineBuilder:
         pipeline = builder.add_fields({
             "fullName": {"$concat": ["$firstName", " ", "$lastName"]}
         }).build()
-        
+
         assert pipeline == [{
             "$addFields": {
                 "fullName": {"$concat": ["$firstName", " ", "$lastName"]}
@@ -84,7 +83,7 @@ class TestPipelineBuilder:
             group_by={"category": "$category"},
             accumulators={"total": {"$sum": "$amount"}}
         ).build()
-        
+
         assert pipeline == [{
             "$group": {
                 "_id": {"category": "$category"},
@@ -99,7 +98,7 @@ class TestPipelineBuilder:
             group_by="$categoryType",
             accumulators={"total": {"$sum": "$amount"}}
         ).build()
-        
+
         assert pipeline == [{
             "$group": {
                 "_id": "$categoryType",
@@ -121,7 +120,7 @@ class TestPipelineBuilder:
             preserve_null_and_empty_arrays=True,
             include_array_index="itemIndex"
         ).build()
-        
+
         assert pipeline == [{
             "$unwind": {
                 "path": "items",
@@ -177,7 +176,7 @@ class TestPipelineBuilder:
             .limit(10)
             .build()
         )
-        
+
         assert len(pipeline) == 3
         assert pipeline[0] == {"$match": {"status": "active"}}
         assert pipeline[1] == {"$sort": {"name": 1}}
@@ -202,7 +201,7 @@ class TestPipelineBuilder:
             .limit(20)
             .build()
         )
-        
+
         assert len(pipeline) == 7
         assert pipeline[0]["$match"]["status"] == "published"
         assert "$lookup" in pipeline[1]
@@ -218,7 +217,7 @@ class TestPipelineBuilder:
         builder.match({"test": 1})
         pipeline1 = builder.build()
         pipeline2 = builder.build()
-        
+
         assert pipeline1 == pipeline2
         assert pipeline1 is not pipeline2  # Different objects
         pipeline1.append({"$test": "should not affect builder"})

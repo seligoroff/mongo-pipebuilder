@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
 from mongo_pipebuilder import PipelineBuilder
 
 
@@ -77,7 +78,7 @@ class TestPipelineBuilderDebug:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10).sort({"name": 1})
         assert len(builder) == 3
-        
+
         result = builder.clear()
         assert len(builder) == 0
         assert result is builder  # Should return self for chaining
@@ -95,7 +96,7 @@ class TestPipelineBuilderDebug:
         """Test copy() on empty builder."""
         builder1 = PipelineBuilder()
         builder2 = builder1.copy()
-        
+
         assert builder2 is not builder1  # Different objects
         assert len(builder2) == 0
         assert builder2.build() == []
@@ -104,18 +105,18 @@ class TestPipelineBuilderDebug:
         """Test copy() creates independent copy."""
         builder1 = PipelineBuilder()
         builder1.match({"status": "active"}).limit(10)
-        
+
         builder2 = builder1.copy()
-        
+
         # Verify copy has same stages
         assert len(builder2) == 2
         assert builder2.build() == builder1.build()
-        
+
         # Modify copy - original should be unchanged
         builder2.sort({"name": 1})
         assert len(builder1) == 2  # Original unchanged
         assert len(builder2) == 3  # Copy modified
-        
+
         # Modify original - copy should be unchanged
         builder1.skip(5)
         assert len(builder1) == 3  # Original modified
@@ -125,10 +126,10 @@ class TestPipelineBuilderDebug:
         """Test that copy() creates truly independent copy."""
         builder1 = PipelineBuilder()
         builder1.match({"status": "active"})
-        
+
         builder2 = builder1.copy()
         builder2.limit(10)
-        
+
         # Verify they are independent
         assert builder1.build() == [{"$match": {"status": "active"}}]
         assert builder2.build() == [
@@ -262,13 +263,13 @@ class TestPipelineBuilderAnalysis:
         """Test has_stage() raises TypeError for non-string argument."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(TypeError, match="stage_type must be a string"):
             builder.has_stage(123)
-        
+
         with pytest.raises(TypeError, match="stage_type must be a string"):
             builder.has_stage(None)
-        
+
         with pytest.raises(TypeError, match="stage_type must be a string"):
             builder.has_stage(["$match"])
 
@@ -283,12 +284,12 @@ class TestPipelineBuilderAnalysis:
         """Test consistency between get_stage_types() and has_stage()."""
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10).sort({"name": 1})
-        
+
         stage_types = builder.get_stage_types()
         assert builder.has_stage("$match") is True
         assert builder.has_stage("$limit") is True
         assert builder.has_stage("$sort") is True
-        
+
         # All stages from get_stage_types should return True in has_stage
         for stage_type in stage_types:
             assert builder.has_stage(stage_type) is True
@@ -301,13 +302,13 @@ class TestPipelineBuilderDebugMethods:
         """Test get_stage_at() with valid index."""
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10).sort({"name": 1})
-        
+
         stage0 = builder.get_stage_at(0)
         assert stage0 == {"$match": {"status": "active"}}
-        
+
         stage1 = builder.get_stage_at(1)
         assert stage1 == {"$limit": 10}
-        
+
         stage2 = builder.get_stage_at(2)
         assert stage2 == {"$sort": {"name": 1}}
 
@@ -315,10 +316,10 @@ class TestPipelineBuilderDebugMethods:
         """Test that get_stage_at() returns a copy, not reference."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         stage = builder.get_stage_at(0)
         stage["$match"]["new_field"] = "value"
-        
+
         # Original should be unchanged
         original_stage = builder.get_stage_at(0)
         assert "new_field" not in original_stage["$match"]
@@ -327,7 +328,7 @@ class TestPipelineBuilderDebugMethods:
         """Test get_stage_at() raises IndexError for negative index."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(IndexError, match="Index -1 out of range"):
             builder.get_stage_at(-1)
 
@@ -335,14 +336,14 @@ class TestPipelineBuilderDebugMethods:
         """Test get_stage_at() raises IndexError for index too large."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(IndexError, match="Index 10 out of range"):
             builder.get_stage_at(10)
 
     def test_get_stage_at_empty_builder(self):
         """Test get_stage_at() raises IndexError on empty builder."""
         builder = PipelineBuilder()
-        
+
         with pytest.raises(IndexError, match="Index 0 out of range"):
             builder.get_stage_at(0)
 
@@ -350,7 +351,7 @@ class TestPipelineBuilderDebugMethods:
         """Test pretty_print() with empty builder."""
         builder = PipelineBuilder()
         result = builder.pretty_print()
-        
+
         assert result == "[]"
         # Should be valid JSON
         json.loads(result)
@@ -360,11 +361,11 @@ class TestPipelineBuilderDebugMethods:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         result = builder.pretty_print()
-        
+
         # Should be valid JSON
         parsed = json.loads(result)
         assert parsed == [{"$match": {"status": "active"}}]
-        
+
         # Should contain expected content
         assert "$match" in result
         assert "status" in result
@@ -375,7 +376,7 @@ class TestPipelineBuilderDebugMethods:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10).sort({"name": 1})
         result = builder.pretty_print()
-        
+
         # Should be valid JSON
         parsed = json.loads(result)
         assert len(parsed) == 3
@@ -388,11 +389,11 @@ class TestPipelineBuilderDebugMethods:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         result = builder.pretty_print(indent=4)
-        
+
         # Should be valid JSON
         parsed = json.loads(result)
         assert parsed == [{"$match": {"status": "active"}}]
-        
+
         # Should use 4 spaces for indentation
         lines = result.split("\n")
         if len(lines) > 1:
@@ -404,11 +405,11 @@ class TestPipelineBuilderDebugMethods:
         builder.match({"name": "тест"})  # Non-ASCII characters
         result_ascii = builder.pretty_print(ensure_ascii=True)
         result_no_ascii = builder.pretty_print(ensure_ascii=False)
-        
+
         # Both should be valid JSON
         json.loads(result_ascii)
         json.loads(result_no_ascii)
-        
+
         # Non-ASCII version should contain original characters
         assert "тест" in result_no_ascii
 
@@ -416,18 +417,18 @@ class TestPipelineBuilderDebugMethods:
         """Test to_json_file() saves pipeline correctly."""
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10)
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_pipeline.json"
             builder.to_json_file(filepath)
-            
+
             # File should exist
             assert filepath.exists()
-            
+
             # Should contain valid JSON
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             assert "pipeline" in data
             assert data["pipeline"] == [
                 {"$match": {"status": "active"}},
@@ -438,20 +439,20 @@ class TestPipelineBuilderDebugMethods:
         """Test to_json_file() with metadata."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         metadata = {
             "version": "1.0",
             "author": "developer",
             "description": "Test pipeline"
         }
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_pipeline.json"
             builder.to_json_file(filepath, metadata=metadata)
-            
+
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             assert "pipeline" in data
             assert "metadata" in data
             assert data["metadata"] == metadata
@@ -460,15 +461,15 @@ class TestPipelineBuilderDebugMethods:
         """Test to_json_file() creates parent directories if they don't exist."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "nested" / "path" / "test_pipeline.json"
-            
+
             # Directory shouldn't exist yet
             assert not filepath.parent.exists()
-            
+
             builder.to_json_file(filepath)
-            
+
             # File and directory should be created
             assert filepath.exists()
             assert filepath.parent.exists()
@@ -477,22 +478,22 @@ class TestPipelineBuilderDebugMethods:
         """Test to_json_file() accepts string path."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = str(Path(tmpdir) / "test_pipeline.json")
             builder.to_json_file(filepath)
-            
+
             assert Path(filepath).exists()
 
     def test_to_json_file_custom_indent(self):
         """Test to_json_file() with custom indent."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_pipeline.json"
             builder.to_json_file(filepath, indent=4)
-            
+
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
                 lines = content.split("\n")
@@ -503,16 +504,16 @@ class TestPipelineBuilderDebugMethods:
         """Test that pretty_print() and to_json_file() produce consistent output."""
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10)
-        
+
         pretty_output = builder.pretty_print()
-        
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / "test_pipeline.json"
             builder.to_json_file(filepath)
-            
+
             with open(filepath, "r", encoding="utf-8") as f:
                 file_data = json.load(f)
-            
+
             # Pipeline in file should match pretty_print output when parsed
             pretty_parsed = json.loads(pretty_output)
             assert file_data["pipeline"] == pretty_parsed
@@ -527,7 +528,7 @@ class TestPipelineBuilderDebugMethods:
             foreign_field="_id",
             as_field="user"
         )
-        
+
         stage = builder.get_stage_at(1)
         assert "$lookup" in stage
         assert stage["$lookup"]["from"] == "users"

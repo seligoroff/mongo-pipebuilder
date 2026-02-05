@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Nothing yet.
+
+## [0.4.0] - 2026-02-05
+
+### Added
+- `lookup_let(from_collection, let, pipeline, as_field)` - Add a `$lookup` stage with `let` and `pipeline` (join by expression; variables from the document available in subpipeline as `$$var`). Accepts `pipeline` as a list of stages or a `PipelineBuilder` (calls `.build()` internally). Full validation and docstring; README API Reference and example.
+- `match_expr(expr)` - Add a `$match` stage with `$expr` condition (expression-based filter; for comparing fields or using variables from `let` in subpipelines). Validation for None and non-dict; README API Reference and example with lookup_let.
+- `union_with(coll, pipeline=None)` - Add a `$unionWith` stage to combine documents from another collection. Optional subpipeline (list of stages or `PipelineBuilder`). Validation for coll and pipeline; README API Reference and docstring.
+
 ## [0.3.1] - 2025-12-17
 
 ### Added
@@ -19,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated README examples to reflect correct `group(group_by=...)` usage
 - Added best practice docs for array `_id` after `$group` (prefer `$arrayElemAt` and materialize fields)
 
+[0.4.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.4.0
 [0.3.1]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.3.1
 
 ## [0.3.0] - 2025-12-16

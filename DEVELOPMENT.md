@@ -63,8 +63,8 @@ After running tests, you'll get coverage reports in multiple formats:
 1. **Terminal output** - shows coverage summary with missing lines marked
 2. **HTML report** - `tests/htmlcov/index.html` - interactive web interface
    - Open in browser: `open tests/htmlcov/index.html` (macOS) or `xdg-open tests/htmlcov/index.html` (Linux)
-3. **JSON report** - `coverage.json` - machine-readable format for CI/CD
-4. **XML report** - `coverage.xml` - for tools like SonarQube, Codecov
+3. **JSON report** - `tests/coverage.json` - machine-readable format for CI/CD
+4. **XML report** - `tests/coverage.xml` - for tools like SonarQube, Codecov
 
 **Example commands:**
 
@@ -181,13 +181,13 @@ Coverage reports are automatically generated in multiple formats:
 - Line-by-line highlighting
 - Best for detailed analysis
 
-**3. JSON Report** (`coverage.json`)
+**3. JSON Report** (`tests/coverage.json`)
 - Machine-readable format
 - Structure: `{meta, files, totals}`
 - Useful for CI/CD pipelines and automated analysis
 - Contains detailed per-file statistics
 
-**4. XML Report** (`coverage.xml`)
+**4. XML Report** (`tests/coverage.xml`)
 - Standard format for CI/CD tools
 - Compatible with SonarQube, Codecov, etc.
 
@@ -198,13 +198,13 @@ TOTAL: 92.41% (59 statements, 2 missing, 20 branches, 4 partial)
 
 **Analyzing JSON Coverage Report:**
 
-The JSON report (`coverage.json`) is structured for easy programmatic analysis:
+The JSON report (`tests/coverage.json`) is structured for easy programmatic analysis:
 
 ```python
 import json
 
 # Load coverage report
-with open('coverage.json') as f:
+with open('tests/coverage.json') as f:
     coverage = json.load(f)
 
 # Overall statistics
@@ -223,7 +223,7 @@ for filepath, file_data in coverage['files'].items():
         print(f"  Missing lines: {missing_lines[:10]}")  # First 10
 ```
 
-**Structure of `coverage.json`:**
+**Structure of `tests/coverage.json`:**
 
 ```json
 {
@@ -257,7 +257,7 @@ for filepath, file_data in coverage['files'].items():
 ```
 
 **Improving Coverage:**
-- Check `coverage.json` for `missing_lines` per file
+- Check `tests/coverage.json` for `missing_lines` per file
 - Review HTML report (`tests/htmlcov/index.html`) to see exact uncovered lines with context
 - Add tests for edge cases and error paths
 - Use `--cov-branch` flag (already configured) to track branch coverage

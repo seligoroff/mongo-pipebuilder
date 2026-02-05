@@ -18,13 +18,13 @@ test:
 	pytest tests/ -v
 
 test-cov:
-	pytest tests/ -v --cov=src/mongo_pipebuilder --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-report=json:coverage.json --cov-report=xml:coverage.xml
+	pytest tests/ -v --cov=src/mongo_pipebuilder --cov-report=term-missing --cov-report=html:tests/htmlcov --cov-report=json:tests/coverage.json --cov-report=xml:tests/coverage.xml
 	@echo ""
 	@echo "Coverage reports generated:"
 	@echo "  - Terminal: displayed above"
 	@echo "  - HTML: tests/htmlcov/index.html"
-	@echo "  - JSON: coverage.json"
-	@echo "  - XML: coverage.xml"
+	@echo "  - JSON: tests/coverage.json"
+	@echo "  - XML: tests/coverage.xml"
 
 lint:
 	ruff check src/ tests/
@@ -43,7 +43,7 @@ clean:
 	rm -rf dist/
 	rm -rf *.egg-info
 	rm -rf tests/htmlcov/
-	rm -f coverage.json coverage.xml .coverage
+	rm -f tests/coverage.json tests/coverage.xml tests/.coverage
 	find . -type d -name __pycache__ -exec rm -r {} +
 	find . -type f -name "*.pyc" -delete
 

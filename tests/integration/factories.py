@@ -10,10 +10,10 @@ Features:
 - Batch creation with variations
 - Flexible customization via kwargs
 """
-from typing import Any, Dict, List, Optional
-from datetime import datetime
 import random
 import string
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 # Try to import ObjectId for MongoDB compatibility
 try:
@@ -26,14 +26,14 @@ except ImportError:
         """Fallback ObjectId generator when bson is not available."""
         if value:
             return value
-        return ''.join(random.choices(string.hexdigits.lower(), k=24))
+        return "".join(random.choices(string.hexdigits.lower(), k=24))
 
 
 class UserFactory:
     """Factory for creating test user documents."""
-    
+
     _counter = 0
-    
+
     @staticmethod
     def create(
         user_id: Optional[Any] = None,
@@ -45,7 +45,7 @@ class UserFactory:
     ) -> Dict[str, Any]:
         """
         Create a test user document.
-        
+
         Args:
             user_id: Custom user ID (if None, generates ObjectId or string)
             name: User name (default: "Test User {counter}")
@@ -53,18 +53,21 @@ class UserFactory:
             active: Whether user is active
             use_objectid: Use ObjectId if bson available (default: True)
             **kwargs: Additional fields to add to document
-        
+
         Returns:
             Dictionary representing a user document
         """
         UserFactory._counter += 1
         counter = UserFactory._counter
-        
+
         if user_id is None:
-            _id = ObjectId() if (use_objectid and OBJECTID_AVAILABLE) else f"user_{counter}_{datetime.now().timestamp()}"
+            _id = (
+                ObjectId() if (use_objectid and OBJECTID_AVAILABLE)
+                else f"user_{counter}_{datetime.now().timestamp()}"
+            )
         else:
             _id = user_id
-        
+
         return {
             "_id": _id,
             "name": name or f"Test User {counter}",
@@ -73,7 +76,7 @@ class UserFactory:
             "createdAt": datetime.now(),
             **kwargs
         }
-    
+
     @staticmethod
     def create_batch(
         count: int,
@@ -83,13 +86,13 @@ class UserFactory:
     ) -> List[Dict[str, Any]]:
         """
         Create multiple test user documents.
-        
+
         Args:
             count: Number of users to create
             active: If None, creates mix of active/inactive. If bool, all users have this status.
             use_objectid: Use ObjectId if bson available
             **kwargs: Additional fields to add to all documents
-        
+
         Returns:
             List of user documents
         """
@@ -101,16 +104,16 @@ class UserFactory:
                 user_kwargs["active"] = i % 2 == 0
             else:
                 user_kwargs["active"] = active
-            
+
             users.append(UserFactory.create(use_objectid=use_objectid, **user_kwargs))
         return users
 
 
 class OrderFactory:
     """Factory for creating test order documents."""
-    
+
     _counter = 0
-    
+
     @staticmethod
     def create(
         order_id: Optional[Any] = None,
@@ -123,7 +126,7 @@ class OrderFactory:
     ) -> Dict[str, Any]:
         """
         Create a test order document.
-        
+
         Args:
             order_id: Custom order ID (if None, generates ObjectId or string)
             user_id: User ID this order belongs to (required for lookups)
@@ -132,23 +135,26 @@ class OrderFactory:
             items: List of order items (default: single item)
             use_objectid: Use ObjectId if bson available
             **kwargs: Additional fields to add to document
-        
+
         Returns:
             Dictionary representing an order document
         """
         OrderFactory._counter += 1
-        
+
         if order_id is None:
-            _id = ObjectId() if (use_objectid and OBJECTID_AVAILABLE) else f"order_{OrderFactory._counter}_{datetime.now().timestamp()}"
+            _id = (
+                ObjectId() if (use_objectid and OBJECTID_AVAILABLE)
+                else f"order_{OrderFactory._counter}_{datetime.now().timestamp()}"
+            )
         else:
             _id = order_id
-        
+
         if amount is None:
             amount = round(random.uniform(10.0, 1000.0), 2)
-        
+
         if status is None:
             status = random.choice(["pending", "completed", "cancelled"])
-        
+
         return {
             "_id": _id,
             "userId": user_id or "user_123",
@@ -158,7 +164,7 @@ class OrderFactory:
             "createdAt": datetime.now(),
             **kwargs
         }
-    
+
     @staticmethod
     def create_batch(
         count: int,
@@ -169,42 +175,42 @@ class OrderFactory:
     ) -> List[Dict[str, Any]]:
         """
         Create multiple test order documents.
-        
+
         Args:
             count: Number of orders to create
             user_ids: List of user IDs to assign orders to (cycles through if provided)
             status: If None, creates mix of statuses. If str, all orders have this status.
             use_objectid: Use ObjectId if bson available
             **kwargs: Additional fields to add to all documents
-        
+
         Returns:
             List of order documents
         """
         orders = []
         for i in range(count):
             order_kwargs = kwargs.copy()
-            
+
             # Assign user_id from list if provided
             if user_ids:
                 order_kwargs["user_id"] = user_ids[i % len(user_ids)]
-            
+
             # Set status
             if status is None:
                 order_kwargs["status"] = None  # Will be randomized in create()
             else:
                 order_kwargs["status"] = status
-            
+
             orders.append(OrderFactory.create(use_objectid=use_objectid, **order_kwargs))
         return orders
 
 
 class ProductFactory:
     """Factory for creating test product documents."""
-    
+
     _counter = 0
     _categories = ["electronics", "books", "clothing", "food", "toys", "sports"]
     _tags_pool = ["new", "popular", "sale", "featured", "limited", "premium", "basic"]
-    
+
     @staticmethod
     def create(
         product_id: Optional[Any] = None,
@@ -218,7 +224,7 @@ class ProductFactory:
     ) -> Dict[str, Any]:
         """
         Create a test product document.
-        
+
         Args:
             product_id: Custom product ID (if None, generates ObjectId or string)
             name: Product name (default: "Product {counter}")
@@ -228,30 +234,33 @@ class ProductFactory:
             tags: List of tags (default: random 1-3 tags from pool)
             use_objectid: Use ObjectId if bson available
             **kwargs: Additional fields to add to document
-        
+
         Returns:
             Dictionary representing a product document
         """
         ProductFactory._counter += 1
-        
+
         if product_id is None:
-            _id = ObjectId() if (use_objectid and OBJECTID_AVAILABLE) else f"product_{ProductFactory._counter}_{datetime.now().timestamp()}"
+            _id = (
+                ObjectId() if (use_objectid and OBJECTID_AVAILABLE)
+                else f"product_{ProductFactory._counter}_{datetime.now().timestamp()}"
+            )
         else:
             _id = product_id
-        
+
         if price is None:
             price = round(random.uniform(5.0, 500.0), 2)
-        
+
         if category is None:
             category = random.choice(ProductFactory._categories)
-        
+
         if in_stock is None:
             in_stock = random.choice([True, True, True, False])  # 75% chance in stock
-        
+
         if tags is None:
             num_tags = random.randint(1, 3)
             tags = random.sample(ProductFactory._tags_pool, num_tags)
-        
+
         return {
             "_id": _id,
             "name": name or f"Product {ProductFactory._counter}",
@@ -262,7 +271,7 @@ class ProductFactory:
             "createdAt": datetime.now(),
             **kwargs
         }
-    
+
     @staticmethod
     def create_batch(
         count: int,
@@ -273,31 +282,31 @@ class ProductFactory:
     ) -> List[Dict[str, Any]]:
         """
         Create multiple test product documents.
-        
+
         Args:
             count: Number of products to create
             category: If None, creates mix of categories. If str, all products have this category.
             in_stock: If None, creates mix. If bool, all products have this stock status.
             use_objectid: Use ObjectId if bson available
             **kwargs: Additional fields to add to all documents
-        
+
         Returns:
             List of product documents
         """
         products = []
-        for i in range(count):
+        for _i in range(count):
             product_kwargs = kwargs.copy()
-            
+
             if category is None:
                 product_kwargs["category"] = None  # Will be randomized in create()
             else:
                 product_kwargs["category"] = category
-            
+
             if in_stock is None:
                 product_kwargs["in_stock"] = None  # Will be randomized in create()
             else:
                 product_kwargs["in_stock"] = in_stock
-            
+
             products.append(ProductFactory.create(use_objectid=use_objectid, **product_kwargs))
         return products
 

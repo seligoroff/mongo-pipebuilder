@@ -51,7 +51,7 @@ def example_with_nested_lookup():
         {"$match": {"active": True}},
         {"$project": {"name": 1, "slug": 1}}
     ]
-    
+
     pipeline = (
         PipelineBuilder()
         .match({"status": "published"})
@@ -176,7 +176,7 @@ def example_pagination():
             .limit(page_size)
             .build()
         )
-    
+
     return get_paginated_pipeline(page=2, page_size=10)
 
 
@@ -212,25 +212,25 @@ def example_insert_before_stage_type():
     builder.match({"status": "active"})
     builder.lookup("users", "userId", "_id", "user")
     builder.group({"_id": "$category"}, {"count": {"$sum": 1}})
-    
+
     # Find position of $group and insert $addFields before it
     stage_types = builder.get_stage_types()
     group_index = stage_types.index("$group")
     builder.insert_at(group_index, {"$addFields": {"categoryUpper": {"$toUpper": "$category"}}})
-    
+
     return builder.build()
 
 
 if __name__ == "__main__":
     # Print examples for demonstration
     import json
-    
+
     print("=== Simple Query ===")
     print(json.dumps(example_simple_query(), indent=2))
-    
+
     print("\n=== With Lookup ===")
     print(json.dumps(example_with_lookup(), indent=2))
-    
+
     print("\n=== Aggregation ===")
     print(json.dumps(example_aggregation(), indent=2))
 

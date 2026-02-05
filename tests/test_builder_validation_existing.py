@@ -4,6 +4,7 @@ Validation tests for existing aggregation stages.
 Tests error handling and validation for existing stages (match, lookup, group, etc.).
 """
 import pytest
+
 from mongo_pipebuilder import PipelineBuilder
 
 
@@ -78,7 +79,7 @@ class TestGroupValidation:
         # String field path is valid in MongoDB
         pipeline = builder.group("$categoryType", {"total": {"$sum": "$amount"}}).build()
         assert pipeline == [{"$group": {"_id": "$categoryType", "total": {"$sum": "$amount"}}}]
-        
+
     def test_group_empty_string_with_empty_accumulators_raises_error(self):
         """Test that group('', {}) raises ValueError."""
         builder = PipelineBuilder()

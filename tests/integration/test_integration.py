@@ -12,13 +12,14 @@ Requirements:
     - pymongo installed (pip install pymongo)
 """
 import pytest
+
 from mongo_pipebuilder import PipelineBuilder
 
 
 @pytest.mark.integration
 class TestPipelineIntegration:
     """Integration tests with real MongoDB."""
-    
+
     def test_match_stage_execution(self, users_collection):
         """Test that $match stage works correctly."""
         pipeline = (
@@ -26,19 +27,19 @@ class TestPipelineIntegration:
             .match({"active": True})
             .build()
         )
-        
+
         results = list(users_collection.aggregate(pipeline))
-        
+
         # Should only return active users
         assert len(results) == 5
         assert all(user["active"] is True for user in results)
-    
+
     def test_lookup_stage_execution(self, orders_collection, users_collection):
         """Test that $lookup stage works correctly."""
         # First, ensure we have matching user IDs
         user = users_collection.find_one()
         orders_collection.update_many({}, {"$set": {"userId": user["_id"]}})
-        
+
         pipeline = (
             PipelineBuilder()
             .lookup(
@@ -49,14 +50,14 @@ class TestPipelineIntegration:
             )
             .build()
         )
-        
+
         results = list(orders_collection.aggregate(pipeline))
-        
+
         # Should have user data joined
         assert len(results) > 0
         assert "user" in results[0]
         assert len(results[0]["user"]) > 0
-    
+
     def test_group_stage_execution(self, orders_collection):
         """Test that $group stage works correctly."""
         pipeline = (
@@ -67,15 +68,15 @@ class TestPipelineIntegration:
             )
             .build()
         )
-        
+
         results = list(orders_collection.aggregate(pipeline))
-        
+
         # Should group by status
         assert len(results) > 0
         assert all("status" in r for r in results)
         assert all("total" in r for r in results)
         assert all("count" in r for r in results)
-    
+
     def test_sort_and_limit_execution(self, products_collection):
         """Test that $sort and $limit stages work correctly."""
         pipeline = (
@@ -84,20 +85,20 @@ class TestPipelineIntegration:
             .limit(3)
             .build()
         )
-        
+
         results = list(products_collection.aggregate(pipeline))
-        
+
         # Should return exactly 3 results, sorted by price descending
         assert len(results) == 3
         prices = [r["price"] for r in results]
         assert prices == sorted(prices, reverse=True)
-    
+
     def test_complex_pipeline_execution(self, orders_collection, users_collection):
         """Test a complex pipeline with multiple stages."""
         # Setup: ensure user IDs match
         user = users_collection.find_one()
         orders_collection.update_many({}, {"$set": {"userId": user["_id"]}})
-        
+
         pipeline = (
             PipelineBuilder()
             .match({"status": "pending"})
@@ -113,16 +114,16 @@ class TestPipelineIntegration:
             .limit(5)
             .build()
         )
-        
+
         results = list(orders_collection.aggregate(pipeline))
-        
+
         # Verify structure
         assert len(results) <= 5
         if results:
             assert "amount" in results[0]
             assert "userName" in results[0]
             assert "_id" not in results[0]
-    
+
     def test_unwind_stage_execution(self, products_collection):
         """Test that $unwind stage works correctly."""
         pipeline = (
@@ -135,9 +136,9 @@ class TestPipelineIntegration:
             .sort({"count": -1})
             .build()
         )
-        
+
         results = list(products_collection.aggregate(pipeline))
-        
+
         # Should unwind tags and group by them
         assert len(results) > 0
         assert all("tag" in r for r in results)

@@ -70,6 +70,15 @@ Adds a `$match` stage to filter documents.
 .match({"status": "active", "age": {"$gte": 18}})
 ```
 
+##### `match_expr(expr: Dict[str, Any]) -> Self`
+
+Adds a `$match` stage with an `$expr` condition (expression-based filter; useful for comparing fields or using variables from `let` in subpipelines).
+
+```python
+.match_expr({"$eq": ["$id", "$$teamId"]})
+.match_expr({"$and": [{"$gte": ["$field", "$other"]}, {"$lte": ["$score", 100]}]})
+```
+
 ##### `lookup(from_collection: str, local_field: str, foreign_field: str, as_field: str, pipeline: Optional[List[Dict[str, Any]]] = None) -> Self`
 
 Adds a `$lookup` stage to join with another collection.
@@ -82,6 +91,43 @@ Adds a `$lookup` stage to join with another collection.
     as_field="user",
     pipeline=[{"$match": {"active": True}}]  # Optional nested pipeline
 )
+```
+
+##### `lookup_let(from_collection: str, let: Dict[str, Any], pipeline: Union[List[Dict[str, Any]], PipelineBuilder], as_field: str) -> Self`
+
+Adds a `$lookup` stage with `let` and `pipeline` (join by expression; variables from the current document are available in the subpipeline as `$$var`). Use this when the join condition is an expression (e.g. `$expr`) rather than equality of two fields.
+
+```python
+# With list of stages
+.lookup_let(
+    from_collection="teams",
+    let={"teamId": "$idTeam"},
+    pipeline=[
+        {"$match": {"$expr": {"$eq": ["$_id", "$$teamId"]}}},
+        {"$project": {"name": 1, "_id": 0}}
+    ],
+    as_field="team"
+)
+
+# With PipelineBuilder for the subpipeline (optionally using match_expr)
+sub = PipelineBuilder().match_expr({"$eq": ["$_id", "$$teamId"]}).project({"name": 1, "_id": 0})
+.lookup_let("teams", {"teamId": "$idTeam"}, sub, as_field="team")
+```
+
+##### `union_with(coll: str, pipeline: Optional[Union[List[Dict[str, Any]], PipelineBuilder]] = None) -> Self`
+
+Adds a `$unionWith` stage to combine documents from the current pipeline with documents from another collection. Optionally runs a subpipeline on the other collection before merging.
+
+```python
+# Union with another collection (no subpipeline)
+.union_with("other_coll")
+
+# With subpipeline as list of stages
+.union_with("logs", [{"$match": {"level": "error"}}, {"$limit": 100}])
+
+# With PipelineBuilder for the subpipeline
+sub = PipelineBuilder().match({"source": "individual"}).project({"name": 1})
+.union_with("sso_individual_statistics", sub)
 ```
 
 ##### `add_fields(fields: Dict[str, Any]) -> Self`
@@ -379,6 +425,31 @@ pipeline = (
     })
     .sort({"publishedAt": -1})
     .limit(20)
+    .build()
+)
+```
+
+### Lookup by expression (lookup_let)
+
+When the join condition is an expression (e.g. `$expr`) rather than matching two fields, use `lookup_let`. The subpipeline can be built with `match_expr()`:
+
+```python
+sub = (
+    PipelineBuilder()
+    .match_expr({"$eq": ["$_id", "$$teamId"]})
+    .project({"name": 1, "slug": 1, "_id": 0})
+)
+pipeline = (
+    PipelineBuilder()
+    .match({"status": "active"})
+    .lookup_let(
+        from_collection="teams",
+        let={"teamId": "$idTeam"},
+        pipeline=sub,
+        as_field="team"
+    )
+    .unwind("team", preserve_null_and_empty_arrays=True)
+    .project({"title": 1, "teamName": "$team.name"})
     .build()
 )
 ```

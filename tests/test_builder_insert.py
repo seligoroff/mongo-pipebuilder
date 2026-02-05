@@ -6,6 +6,7 @@ Tests for prepend() and insert_at() methods from Proposal 9.
 Author: seligoroff
 """
 import pytest
+
 from mongo_pipebuilder import PipelineBuilder
 
 
@@ -23,7 +24,7 @@ class TestPrepend:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         builder.prepend({"$match": {"deleted": False}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 2
         assert pipeline[0] == {"$match": {"deleted": False}}
@@ -34,7 +35,7 @@ class TestPrepend:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10).sort({"name": 1})
         builder.prepend({"$match": {"deleted": False}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 4
         assert pipeline[0] == {"$match": {"deleted": False}}
@@ -54,7 +55,7 @@ class TestPrepend:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         builder.prepend({})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 1
         assert pipeline[0] == {"$match": {"status": "active"}}
@@ -70,10 +71,10 @@ class TestPrepend:
         builder = PipelineBuilder()
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.prepend("not a dict")
-        
+
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.prepend(123)
-        
+
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.prepend([])
 
@@ -86,7 +87,7 @@ class TestInsertAt:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         builder.insert_at(0, {"$match": {"deleted": False}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 2
         assert pipeline[0] == {"$match": {"deleted": False}}
@@ -97,7 +98,7 @@ class TestInsertAt:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).group("$category", {"count": {"$sum": 1}})
         builder.insert_at(1, {"$sort": {"name": 1}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 3
         assert pipeline[0] == {"$match": {"status": "active"}}
@@ -109,7 +110,7 @@ class TestInsertAt:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10)
         builder.insert_at(2, {"$sort": {"name": 1}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 3
         assert pipeline[0] == {"$match": {"status": "active"}}
@@ -129,7 +130,7 @@ class TestInsertAt:
         builder = PipelineBuilder()
         builder.match({"status": "active"}).limit(10)
         builder.insert_at(1, {})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 2
         assert pipeline[0] == {"$match": {"status": "active"}}
@@ -146,13 +147,13 @@ class TestInsertAt:
         """Test that insert_at() with non-dict raises TypeError."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.insert_at(1, "not a dict")
-        
+
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.insert_at(1, 123)
-        
+
         with pytest.raises(TypeError, match="stage must be a dict"):
             builder.insert_at(1, [])
 
@@ -160,7 +161,7 @@ class TestInsertAt:
         """Test that insert_at() with negative position raises IndexError."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(IndexError, match="Position -1 out of range"):
             builder.insert_at(-1, {"$limit": 10})
 
@@ -168,7 +169,7 @@ class TestInsertAt:
         """Test that insert_at() with position > len(stages) raises IndexError."""
         builder = PipelineBuilder()
         builder.match({"status": "active"})
-        
+
         with pytest.raises(IndexError, match="Position 10 out of range"):
             builder.insert_at(10, {"$limit": 10})
 
@@ -177,7 +178,7 @@ class TestInsertAt:
         builder = PipelineBuilder()
         builder.match({"status": "active"})
         builder.insert_at(1, {"$limit": 10})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 2
         assert pipeline[1] == {"$limit": 10}
@@ -189,10 +190,10 @@ class TestInsertAt:
         builder.lookup("users", "userId", "_id", "user")
         builder.unwind("user")
         builder.group("$category", {"count": {"$sum": 1}})
-        
+
         # Insert $addFields before $group
         builder.insert_at(3, {"$addFields": {"categoryUpper": {"$toUpper": "$category"}}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 5
         assert "$match" in pipeline[0]
@@ -211,7 +212,7 @@ class TestPrependAndInsertAtIntegration:
         builder.match({"status": "active"}).limit(10)
         builder.prepend({"$match": {"deleted": False}})
         builder.insert_at(2, {"$sort": {"name": 1}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 4
         assert pipeline[0] == {"$match": {"deleted": False}}
@@ -225,12 +226,12 @@ class TestPrependAndInsertAtIntegration:
         builder.match({"status": "active"})
         builder.lookup("users", "userId", "_id", "user")
         builder.group("$category", {"count": {"$sum": 1}})
-        
+
         # Find position of $group and insert before it
         stage_types = builder.get_stage_types()
         group_index = stage_types.index("$group")
         builder.insert_at(group_index, {"$addFields": {"x": 1}})
-        
+
         pipeline = builder.build()
         assert len(pipeline) == 4
         assert "$match" in pipeline[0]
@@ -249,7 +250,7 @@ class TestPrependAndInsertAtIntegration:
             .limit(10)
             .build()
         )
-        
+
         assert len(pipeline) == 4
         assert pipeline[0] == {"$match": {"deleted": False}}
         assert pipeline[1] == {"$match": {"status": "active"}}
