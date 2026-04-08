@@ -68,6 +68,42 @@ def example_with_nested_lookup():
     return pipeline
 
 
+def example_with_lookup_hybrid():
+    """Example of hybrid lookup (local/foreign + let + pipeline)."""
+    sub_pipeline = [
+        {
+            "$match": {
+                "$expr": {
+                    "$and": [
+                        {"$eq": ["$$local_season_id", "$idSeason"]},
+                        {"$eq": ["$$local_tournament_id", "$idTournament"]},
+                    ]
+                }
+            }
+        }
+    ]
+
+    pipeline = (
+        PipelineBuilder()
+        .match({"idPlayer": "player-1", "idMatch": {"$ne": None}})
+        .lookup_hybrid(
+            from_collection="sso_matches",
+            as_field="match",
+            local_field="idMatch",
+            foreign_field="id",
+            let={
+                "local_season_id": "$$season_id",
+                "local_tournament_id": "$$tournament_id",
+            },
+            pipeline=sub_pipeline,
+        )
+        .unwind("$match")
+        .limit(1)
+        .build()
+    )
+    return pipeline
+
+
 def example_aggregation():
     """Example aggregation with grouping."""
     pipeline = (
@@ -230,6 +266,9 @@ if __name__ == "__main__":
 
     print("\n=== With Lookup ===")
     print(json.dumps(example_with_lookup(), indent=2))
+
+    print("\n=== With Hybrid Lookup ===")
+    print(json.dumps(example_with_lookup_hybrid(), indent=2))
 
     print("\n=== Aggregation ===")
     print(json.dumps(example_aggregation(), indent=2))

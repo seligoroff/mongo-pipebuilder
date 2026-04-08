@@ -130,6 +130,32 @@ sub = PipelineBuilder().match({"source": "individual"}).project({"name": 1})
 .union_with("sso_individual_statistics", sub)
 ```
 
+##### `lookup_hybrid(from_collection: str, as_field: str, local_field: Optional[str] = None, foreign_field: Optional[str] = None, let: Optional[Dict[str, Any]] = None, pipeline: Optional[Union[List[Dict[str, Any]], PipelineBuilder]] = None) -> Self`
+
+Adds a combined `$lookup` stage for hybrid join cases where `localField/foreignField` is used together with `let` and `pipeline`.
+
+Rules:
+- `local_field` and `foreign_field` must be provided together.
+- `let` requires `pipeline`.
+- `pipeline` requires `let`.
+- Empty `pipeline` is not allowed.
+
+```python
+.lookup_hybrid(
+    from_collection="sso_matches",
+    as_field="match",
+    local_field="idMatch",
+    foreign_field="id",
+    let={"local_season_id": "$$season_id", "local_tournament_id": "$$tournament_id"},
+    pipeline=[
+        {"$match": {"$expr": {"$and": [
+            {"$eq": ["$$local_season_id", "$idSeason"]},
+            {"$eq": ["$$local_tournament_id", "$idTournament"]}
+        ]}}}
+    ],
+)
+```
+
 ##### `add_fields(fields: Dict[str, Any]) -> Self`
 
 Adds a `$addFields` stage to add or modify fields.
@@ -463,6 +489,73 @@ pipeline = (
     )
     .unwind("team", preserve_null_and_empty_arrays=True)
     .project({"title": 1, "teamName": "$team.name"})
+    .build()
+)
+```
+
+### Hybrid lookup migration (raw stage -> lookup_hybrid)
+
+For complex `$lookup` that combines `localField/foreignField` with `let` and `pipeline`,
+you can replace raw `add_stage({"$lookup": ...})` with `lookup_hybrid(...)`:
+
+```python
+subpipeline = (
+    PipelineBuilder()
+    .match({"idPlayer": player_id, "idMatch": {"$ne": None}})
+    .lookup_hybrid(
+        from_collection="sso_matches",
+        as_field="match",
+        local_field="idMatch",
+        foreign_field="id",
+        let={
+            "local_season_id": "$$season_id",
+            "local_tournament_id": "$$tournament_id",
+        },
+        pipeline=[
+            {
+                "$match": {
+                    "$expr": {
+                        "$and": [
+                            {"$eq": ["$$local_season_id", "$idSeason"]},
+                            {"$eq": ["$$local_tournament_id", "$idTournament"]},
+                        ]
+                    }
+                }
+            }
+        ],
+    )
+    .unwind("$match")
+    .limit(1)
+)
+```
+
+### Hybrid lookup with PipelineBuilder subpipeline
+
+You can also build the hybrid `$lookup` subpipeline with `PipelineBuilder` and pass it directly:
+
+```python
+match_sub = (
+    PipelineBuilder()
+    .match_expr({"$and": [
+        {"$eq": ["$$local_season_id", "$idSeason"]},
+        {"$eq": ["$$local_tournament_id", "$idTournament"]},
+    ]})
+    .project({"idSeason": 1, "idTournament": 1, "_id": 0})
+)
+
+pipeline = (
+    PipelineBuilder()
+    .lookup_hybrid(
+        from_collection="sso_matches",
+        as_field="match",
+        local_field="idMatch",
+        foreign_field="id",
+        let={
+            "local_season_id": "$$season_id",
+            "local_tournament_id": "$$tournament_id",
+        },
+        pipeline=match_sub,
+    )
     .build()
 )
 ```

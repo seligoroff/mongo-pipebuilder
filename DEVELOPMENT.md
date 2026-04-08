@@ -138,6 +138,18 @@ The package intentionally has zero external dependencies to:
 3. **Flexibility**: `add_stage()` allows any MongoDB stage for advanced use cases
 4. **Pythonic**: Follows Python conventions and type hints
 
+### Exception Strategy (Validation Policy)
+
+For public API methods, use a consistent exception policy:
+
+- **TypeError**: argument type is invalid (e.g., expected `dict`, got `str`).
+- **ValueError**: argument type is valid, but value/composition is invalid
+  (e.g., empty string, negative number, invalid argument combination).
+- **IndexError**: index is out of valid range.
+
+This policy should be applied to all new methods and used to gradually align
+older methods where behavior is still inconsistent.
+
 ## Extending the Package
 
 ### Adding New Stage Methods

@@ -23,6 +23,49 @@ class PipelineBuilder:
         """Initialize a new builder with an empty pipeline."""
         self._stages: List[Dict[str, Any]] = []
 
+    @staticmethod
+    def _validate_non_empty_string(value: Any, field_name: str) -> None:
+        """Validate that value is a non-empty string."""
+        if not isinstance(value, str):
+            raise TypeError(f"{field_name} must be a string")
+        if not value:
+            raise ValueError(f"{field_name} must be a non-empty string")
+
+    @staticmethod
+    def _normalize_pipeline(
+        pipeline: Optional[Union[List[Dict[str, Any]], "PipelineBuilder"]],
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Normalize optional pipeline argument to list of dict stages."""
+        if pipeline is None:
+            return None
+        if isinstance(pipeline, PipelineBuilder):
+            normalized = pipeline.build()
+        elif isinstance(pipeline, list):
+            normalized = pipeline
+        else:
+            raise TypeError("pipeline must be a list or PipelineBuilder")
+
+        if not normalized:
+            raise ValueError("pipeline cannot be empty")
+        if not all(isinstance(stage, dict) for stage in normalized):
+            raise TypeError("All pipeline stages must be dictionaries")
+        return normalized
+
+    @staticmethod
+    def _validate_hybrid_lookup_combinations(
+        local_field: Optional[str],
+        foreign_field: Optional[str],
+        let: Optional[Dict[str, Any]],
+        pipeline: Optional[Union[List[Dict[str, Any]], "PipelineBuilder"]],
+    ) -> None:
+        """Validate argument combinations for lookup_hybrid."""
+        if (local_field is None) != (foreign_field is None):
+            raise ValueError("local_field and foreign_field must be provided together")
+        if let is None and pipeline is not None:
+            raise ValueError("pipeline without let is not supported in lookup_hybrid")
+        if let is not None and pipeline is None:
+            raise ValueError("let requires pipeline in lookup_hybrid")
+
     def match(self, conditions: Dict[str, Any]) -> Self:
         """
         Add a $match stage for filtering documents.
@@ -243,6 +286,74 @@ class PipelineBuilder:
             else:
                 raise TypeError("pipeline must be a list or PipelineBuilder")
         self._stages.append({"$unionWith": {"coll": coll, "pipeline": pipeline_list}})
+        return self
+
+    def lookup_hybrid(
+        self,
+        from_collection: str,
+        as_field: str,
+        local_field: Optional[str] = None,
+        foreign_field: Optional[str] = None,
+        let: Optional[Dict[str, Any]] = None,
+        pipeline: Optional[Union[List[Dict[str, Any]], "PipelineBuilder"]] = None,
+    ) -> Self:
+        """
+        Add a combined $lookup stage (local/foreign + let + pipeline).
+
+        Supports the hybrid case where local/foreign join is combined with let
+        variables and a subpipeline.
+
+        Args:
+            from_collection: Name of the collection to join with.
+            as_field: Name of the field for join results.
+            local_field: Field in the current collection (must be paired with foreign_field).
+            foreign_field: Field in the joined collection (must be paired with local_field).
+            let: Variables for subpipeline (requires pipeline).
+            pipeline: Subpipeline as list of stages or PipelineBuilder.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            TypeError: If argument types are invalid.
+            ValueError: If strings are empty or argument combinations are invalid.
+
+        Example:
+            >>> builder.lookup_hybrid(
+            ...     from_collection="sso_matches",
+            ...     as_field="match",
+            ...     local_field="idMatch",
+            ...     foreign_field="id",
+            ...     let={"season_id": "$$season_id"},
+            ...     pipeline=[{"$match": {"$expr": {"$eq": ["$$season_id", "$idSeason"]}}}],
+            ... )
+        """
+        self._validate_non_empty_string(from_collection, "from_collection")
+        self._validate_non_empty_string(as_field, "as_field")
+        self._validate_hybrid_lookup_combinations(local_field, foreign_field, let, pipeline)
+        if local_field is not None:
+            self._validate_non_empty_string(local_field, "local_field")
+        if foreign_field is not None:
+            self._validate_non_empty_string(foreign_field, "foreign_field")
+
+        if let is not None and not isinstance(let, dict):
+            raise TypeError("let must be a dict")
+        pipeline_list = self._normalize_pipeline(pipeline)
+
+        lookup_stage: Dict[str, Any] = {
+            "from": from_collection,
+            "as": as_field,
+        }
+        if local_field is not None:
+            lookup_stage["localField"] = local_field
+        if foreign_field is not None:
+            lookup_stage["foreignField"] = foreign_field
+        if let is not None:
+            lookup_stage["let"] = let
+        if pipeline_list is not None:
+            lookup_stage["pipeline"] = pipeline_list
+
+        self._stages.append({"$lookup": lookup_stage})
         return self
 
     def add_fields(self, fields: Dict[str, Any]) -> Self:

@@ -5,11 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-02-05
 
 ### Added
 
-- Nothing yet.
+- `lookup_hybrid(from_collection, as_field, local_field=None, foreign_field=None, let=None, pipeline=None)` - Add a combined `$lookup` stage for hybrid join cases using `localField/foreignField` together with `let` and `pipeline`. Supports `pipeline` as list of stages or `PipelineBuilder`, with validation for argument types/combinations; README API Reference and migration example updated.
+
+### Changed
+
+- Validation policy documented in `DEVELOPMENT.md`: `TypeError` for invalid types, `ValueError` for invalid values/combinations, `IndexError` for out-of-range indexes.
 
 ## [0.5.0] - 2026-02-05
 
@@ -41,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated README examples to reflect correct `group(group_by=...)` usage
 - Added best practice docs for array `_id` after `$group` (prefer `$arrayElemAt` and materialize fields)
 
+[0.6.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.6.0
 [0.5.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.5.0
 [0.4.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.4.0
 [0.3.1]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.3.1
