@@ -1,7 +1,7 @@
 """
 Tests for PipelineBuilder.unwind path prefix ($) — MongoDB-valid $unwind path.
 
-Reproduces issue: localdocs/issues/unwind-path-prefix
+Reproduces issue: localdocs/issues/unwind-path-prefix-fixed
 """
 from mongo_pipebuilder import PipelineBuilder
 
