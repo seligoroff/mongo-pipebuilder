@@ -137,6 +137,18 @@ class TestPipelineBuilderDebug:
             {"$limit": 10}
         ]
 
+    def test_copy_deep_copy_nested_mutation(self):
+        """Mutating nested dicts via copy's build() must not affect the original."""
+        builder1 = PipelineBuilder()
+        builder1.match({"status": "active"})
+        builder2 = builder1.copy()
+
+        pipeline = builder2.build()
+        pipeline[0]["$match"]["status"] = "banned"
+
+        assert builder1.build() == [{"$match": {"status": "active"}}]
+        assert builder2.build() == [{"$match": {"status": "active"}}]
+
     def test_validate_empty_builder_raises_error(self):
         """Test validate() raises ValueError on empty pipeline."""
         builder = PipelineBuilder()

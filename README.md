@@ -16,7 +16,7 @@ Type-safe, fluent MongoDB aggregation pipeline builder for Python.
 
 - **Type-safe**: Full type hints support with IDE autocomplete
 - **Fluent interface**: Chain methods for readable, maintainable code
-- **Zero dependencies**: Pure Python, lightweight package
+- **Minimal dependencies**: No runtime dependencies on Python 3.11+; `typing_extensions` only on Python 3.9–3.10 (for `Self`)
 - **Extensible**: Easy to add custom stages via `add_stage()`
 - **Well tested**: Comprehensive test suite with 96%+ coverage
 
@@ -172,11 +172,15 @@ Adds a `$project` stage to reshape documents.
 .project({"name": 1, "email": 1, "_id": 0})
 ```
 
-##### `group(group_by: Dict[str, Any], accumulators: Dict[str, Any]) -> Self`
+##### `group(group_by: Union[str, Dict[str, Any], Any], accumulators: Dict[str, Any]) -> Self`
 
-Adds a `$group` stage to group documents.
+Adds a `$group` stage to group documents. The `group_by` argument becomes `$group._id` (field path string, composite key dict, array, `null`, etc.).
 
 ```python
+.group(
+    group_by="$category",
+    accumulators={"total": {"$sum": "$amount"}}
+)
 .group(
     group_by={"category": "$category"},
     accumulators={"total": {"$sum": "$amount"}}
@@ -185,11 +189,11 @@ Adds a `$group` stage to group documents.
 
 ##### `unwind(path: str, preserve_null_and_empty_arrays: bool = False, include_array_index: Optional[str] = None) -> Self`
 
-Adds a `$unwind` stage to deconstruct arrays.
+Adds a `$unwind` stage to deconstruct arrays. The `path` may be given with or without a leading `$`; a `$` prefix is added automatically when omitted (MongoDB field path requirement).
 
 ```python
 .unwind("tags", preserve_null_and_empty_arrays=True)
-.unwind("items", include_array_index="itemIndex")
+.unwind("$items", include_array_index="itemIndex")
 ```
 
 ##### `sort(fields: Dict[str, int]) -> Self`
@@ -324,7 +328,7 @@ builder.insert_at(group_index, {"$addFields": {"x": 1}})
 
 ##### `copy() -> PipelineBuilder`
 
-Creates an independent copy of the builder with current stages. Useful for creating immutable variants and composing pipelines.
+Creates an independent copy of the builder with deep-copied stages. Nested mutations in one builder do not affect the other. Useful for composing pipeline variants safely.
 
 ```python
 builder1 = PipelineBuilder().match({"status": "active"})
@@ -356,7 +360,7 @@ builder.validate()  # Raises ValueError: $out stage must be the last stage
 
 ##### `get_stage_at(index: int) -> Dict[str, Any]`
 
-Gets a specific stage from the pipeline by index. Returns a copy of the stage.
+Gets a specific stage from the pipeline by index. Returns a deep copy of the stage (safe to mutate nested fields).
 
 ```python
 builder = PipelineBuilder()
@@ -424,7 +428,7 @@ print(new.compare_with(legacy))
 
 ##### `build() -> List[Dict[str, Any]]`
 
-Returns the complete pipeline as a list of stage dictionaries.
+Returns the complete pipeline as a deep copy of stage dictionaries. Safe to mutate the returned list and nested stage content without affecting the builder.
 
 ## Examples
 
@@ -581,7 +585,7 @@ pipeline = (
 
 ### Composing and Reusing Pipelines
 
-The `copy()` method allows you to create immutable variants of pipelines, enabling safe composition and reuse. This is useful when you need to:
+The `copy()` method creates independent builders with deep-copied stages, enabling safe composition and reuse. Mutating stages in `build()` output or in one copy does not affect the original builder. This is useful when you need to:
 - Create multiple variants from a base pipeline
 - Compose pipelines functionally
 - Cache base pipelines safely

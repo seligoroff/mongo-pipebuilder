@@ -486,7 +486,8 @@ class PipelineBuilder:
         Add an $unwind stage for unwinding arrays.
 
         Args:
-            path: Path to the array field
+            path: Path to the array field (with or without leading ``$``; a ``$``
+                prefix is added automatically when missing, as required by MongoDB)
             preserve_null_and_empty_arrays: Preserve documents with null/empty arrays
             include_array_index: Name of the field for array element index
 
@@ -506,7 +507,8 @@ class PipelineBuilder:
         if not path:
             raise ValueError("path cannot be empty")
 
-        unwind_stage: Dict[str, Any] = {"path": path}
+        field_path = path if path.startswith("$") else f"${path}"
+        unwind_stage: Dict[str, Any] = {"path": field_path}
         if preserve_null_and_empty_arrays:
             unwind_stage["preserveNullAndEmptyArrays"] = True
         if include_array_index:
@@ -884,6 +886,9 @@ class PipelineBuilder:
         """
         Create a copy of the builder with current stages.
 
+        Stages are deep-copied so nested mutations in one builder do not
+        affect the other.
+
         Returns:
             New PipelineBuilder instance with copied stages
 
@@ -897,7 +902,7 @@ class PipelineBuilder:
             2
         """
         new_builder = PipelineBuilder()
-        new_builder._stages = self._stages.copy()
+        new_builder._stages = copy.deepcopy(self._stages)
         return new_builder
 
     def validate(self) -> bool:
@@ -1236,6 +1241,10 @@ class PipelineBuilder:
         """
         Return the completed pipeline.
 
+        Returns a deep copy of internal stages so callers can safely mutate
+        the returned list and nested stage dictionaries without affecting
+        the builder.
+
         Returns:
             List of dictionaries with aggregation pipeline stages
 
@@ -1243,5 +1252,5 @@ class PipelineBuilder:
             >>> pipeline = builder.build()
             >>> collection.aggregate(pipeline)
         """
-        return self._stages.copy()
+        return copy.deepcopy(self._stages)
 

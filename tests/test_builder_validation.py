@@ -73,7 +73,7 @@ class TestPipelineValidation:
         unwind_stage = pipeline[0]["$unwind"]
         assert "path" in unwind_stage
         assert isinstance(unwind_stage["path"], str)
-        assert unwind_stage["path"] == "tags"
+        assert unwind_stage["path"] == "$tags"
 
     def test_sort_stage_values_are_valid(self):
         """Test that $sort stage has valid sort directions (1 or -1)."""

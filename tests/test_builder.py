@@ -110,7 +110,7 @@ class TestPipelineBuilder:
         """Test adding $unwind stage."""
         builder = PipelineBuilder()
         pipeline = builder.unwind("tags").build()
-        assert pipeline == [{"$unwind": {"path": "tags"}}]
+        assert pipeline == [{"$unwind": {"path": "$tags"}}]
 
     def test_unwind_with_options(self):
         """Test $unwind with options."""
@@ -123,7 +123,7 @@ class TestPipelineBuilder:
 
         assert pipeline == [{
             "$unwind": {
-                "path": "items",
+                "path": "$items",
                 "preserveNullAndEmptyArrays": True,
                 "includeArrayIndex": "itemIndex"
             }
@@ -212,7 +212,7 @@ class TestPipelineBuilder:
         assert "$limit" in pipeline[6]
 
     def test_build_returns_copy(self):
-        """Test that build() returns a copy, not a reference."""
+        """Test that build() returns a deep copy, not a reference."""
         builder = PipelineBuilder()
         builder.match({"test": 1})
         pipeline1 = builder.build()
@@ -222,6 +222,16 @@ class TestPipelineBuilder:
         assert pipeline1 is not pipeline2  # Different objects
         pipeline1.append({"$test": "should not affect builder"})
         assert len(builder.build()) == 1  # Builder unchanged
+
+    def test_build_deep_copy_nested_mutation(self):
+        """Mutating nested dicts in build() result must not affect the builder."""
+        builder = PipelineBuilder()
+        builder.match({"status": "active"})
+        pipeline = builder.build()
+
+        pipeline[0]["$match"]["status"] = "banned"
+
+        assert builder.build() == [{"$match": {"status": "active"}}]
 
     def test_unset_single_field(self):
         """Test $unset with single field."""

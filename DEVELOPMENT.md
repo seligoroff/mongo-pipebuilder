@@ -123,13 +123,14 @@ The `PipelineBuilder` class provides a fluent interface for building MongoDB agg
 - **Type safety**: Full type hints for IDE support and static analysis
 - **Extensibility**: Easy to add new stages without breaking existing code
 
-### Why No Dependencies?
+### Why Minimal Dependencies?
 
-The package intentionally has zero external dependencies to:
-- Keep it lightweight
-- Avoid version conflicts
-- Make it easy to integrate into any project
-- Reduce maintenance burden
+The package keeps external dependencies as small as possible:
+
+- **Python 3.11+**: no runtime dependencies (`Self` from `typing`)
+- **Python 3.9–3.10**: optional `typing_extensions` only (for `Self`)
+
+This helps keep the package lightweight, avoid version conflicts, and make integration easy.
 
 ### Design Principles
 

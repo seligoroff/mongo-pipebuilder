@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.1] - 2026-07-07
+
+### Fixed
+
+- `build()` and `copy()` now return deep copies of stages so nested mutations in the returned pipeline do not affect the builder's internal state (aligned with `get_stage_at()` behavior).
+- `unwind()` now auto-prefixes `path` with `$` when missing, producing MongoDB-valid `$unwind` stages (e.g. `unwind("tags")` → `"$tags"`).
+
+### Changed
+
+- README and `DEVELOPMENT.md`: clarified deep-copy semantics for `build()` / `copy()` / `get_stage_at()`, corrected `group()` API signature, updated dependency wording (`typing_extensions` on Python 3.9–3.10 only).
+
+[0.6.1]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.6.1
+
 ## [0.6.0] - 2026-02-05
 
 ### Added
