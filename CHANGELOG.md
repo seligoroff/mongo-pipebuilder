@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-17
+
+### Changed
+
+- `add_stage()` now raises `TypeError` when `stage` is `None` or not a dictionary (previously any truthy value was silently appended, producing invalid pipelines). Aligned with `add_stages()`, `prepend()`, and `insert_at()` validation.
+- `lookup()` now raises `TypeError` (was `ValueError`) when `from_collection`, `local_field`, `foreign_field`, or `as_field` is not a string, per the documented validation policy (`TypeError` for invalid types, `ValueError` for invalid values). Empty strings still raise `ValueError`. String validation in `lookup()`, `lookup_let()`, and `union_with()` is now routed through the shared `_validate_non_empty_string` helper (no behavior change for `lookup_let`/`union_with`).
+- `limit()` and `skip()` now raise `TypeError` for `bool` arguments (previously `limit(True)` passed the `int` check — `bool` is a subclass of `int` — and produced an invalid `{"$limit": true}` stage).
+- `group()` now raises `ValueError` when `accumulators` contains an `_id` key (previously it silently overwrote the `group_by` expression in the resulting `$group` stage, producing a wrong pipeline).
+
+### Fixed
+
+- Package failed to import on a clean Python 3.11+ install: `builder.py` imported `typing_extensions` unconditionally while the dependency is declared only for `python_version<'3.11'`. `Self` is now imported from `typing` on Python 3.11+ and from `typing_extensions` on older interpreters.
+
+[0.7.0]: https://github.com/seligoroff/mongo-pipebuilder/releases/tag/v0.7.0
+
 ## [0.6.1] - 2026-07-07
 
 ### Fixed

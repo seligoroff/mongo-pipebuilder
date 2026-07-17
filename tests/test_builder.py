@@ -3,6 +3,8 @@ Tests for PipelineBuilder.
 
 Author: seligoroff
 """
+import pytest
+
 from mongo_pipebuilder import PipelineBuilder
 
 
@@ -165,6 +167,27 @@ class TestPipelineBuilder:
         custom_stage = {"$facet": {"categories": [{"$group": {"_id": "$category"}}]}}
         pipeline = builder.add_stage(custom_stage).build()
         assert pipeline == [custom_stage]
+
+    def test_add_stage_empty_dict_skipped(self):
+        """Test skipping empty dict stage."""
+        builder = PipelineBuilder()
+        result = builder.add_stage({})
+        assert result is builder
+        assert builder.build() == []
+
+    def test_add_stage_none_raises_error(self):
+        """Test that None stage raises TypeError."""
+        builder = PipelineBuilder()
+        with pytest.raises(TypeError, match="stage cannot be None"):
+            builder.add_stage(None)
+
+    def test_add_stage_non_dict_raises_error(self):
+        """Test that non-dict stage raises TypeError."""
+        builder = PipelineBuilder()
+        for invalid in ("oops", ["$match", {}], 42, {"$limit", 10}):
+            with pytest.raises(TypeError, match="stage must be a dict"):
+                builder.add_stage(invalid)
+        assert builder.build() == []
 
     def test_fluent_interface(self):
         """Test method chaining (fluent interface)."""

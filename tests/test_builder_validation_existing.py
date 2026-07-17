@@ -38,12 +38,24 @@ class TestLookupValidation:
         builder = PipelineBuilder()
         with pytest.raises(ValueError, match="from_collection must be a non-empty string"):
             builder.lookup("", "local", "foreign", "as")
+        with pytest.raises(ValueError, match="local_field must be a non-empty string"):
+            builder.lookup("users", "", "foreign", "as")
+        with pytest.raises(ValueError, match="foreign_field must be a non-empty string"):
+            builder.lookup("users", "local", "", "as")
+        with pytest.raises(ValueError, match="as_field must be a non-empty string"):
+            builder.lookup("users", "local", "foreign", "")
 
-    def test_lookup_non_string_collection_raises_error(self):
-        """Test that lookup(123, ...) raises ValueError."""
+    def test_lookup_non_string_arguments_raise_type_error(self):
+        """Test that lookup with non-string arguments raises TypeError."""
         builder = PipelineBuilder()
-        with pytest.raises(ValueError, match="from_collection must be a non-empty string"):
+        with pytest.raises(TypeError, match="from_collection must be a string"):
             builder.lookup(123, "local", "foreign", "as")
+        with pytest.raises(TypeError, match="local_field must be a string"):
+            builder.lookup("users", 123, "foreign", "as")
+        with pytest.raises(TypeError, match="foreign_field must be a string"):
+            builder.lookup("users", "local", None, "as")
+        with pytest.raises(TypeError, match="as_field must be a string"):
+            builder.lookup("users", "local", "foreign", ["as"])
 
     def test_lookup_invalid_pipeline_type_raises_error(self):
         """Test that lookup(..., pipeline=123) raises TypeError."""
@@ -97,6 +109,19 @@ class TestGroupValidation:
         builder = PipelineBuilder()
         with pytest.raises(ValueError, match="Invalid group_by: you passed a dict wrapper"):
             builder.group({"_id": ["$a", "$b"]}, {"count": {"$sum": 1}})
+
+    def test_group_id_in_accumulators_raises_error(self):
+        """Test that group() rejects '_id' key in accumulators."""
+        builder = PipelineBuilder()
+        with pytest.raises(ValueError, match="accumulators cannot contain an '_id' key"):
+            builder.group("$category", {"_id": "$other", "count": {"$sum": 1}})
+        assert builder.build() == []
+
+    def test_group_id_like_accumulator_names_allowed(self):
+        """Test that accumulator names merely containing 'id' are still allowed."""
+        builder = PipelineBuilder()
+        pipeline = builder.group("$category", {"ids": {"$addToSet": "$_id"}}).build()
+        assert pipeline == [{"$group": {"_id": "$category", "ids": {"$addToSet": "$_id"}}}]
 
 
 class TestUnwindValidation:
@@ -152,6 +177,15 @@ class TestLimitValidation:
         pipeline = builder.limit(0).build()
         assert pipeline == []
 
+    def test_limit_bool_raises_error(self):
+        """Test that limit(True/False) raises TypeError (bool is a subclass of int)."""
+        builder = PipelineBuilder()
+        with pytest.raises(TypeError, match="limit must be an integer"):
+            builder.limit(True)
+        with pytest.raises(TypeError, match="limit must be an integer"):
+            builder.limit(False)
+        assert builder.build() == []
+
 
 class TestSkipValidation:
     """Tests for $skip stage validation."""
@@ -173,6 +207,15 @@ class TestSkipValidation:
         builder = PipelineBuilder()
         pipeline = builder.skip(0).build()
         assert pipeline == []
+
+    def test_skip_bool_raises_error(self):
+        """Test that skip(True/False) raises TypeError (bool is a subclass of int)."""
+        builder = PipelineBuilder()
+        with pytest.raises(TypeError, match="skip must be an integer"):
+            builder.skip(True)
+        with pytest.raises(TypeError, match="skip must be an integer"):
+            builder.skip(False)
+        assert builder.build() == []
 
 
 class TestAddFieldsValidation:

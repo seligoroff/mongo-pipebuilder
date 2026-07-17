@@ -9,11 +9,15 @@ Author: seligoroff
 import copy
 import difflib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
-# For compatibility with Python < 3.11 (Self is in typing from 3.11)
-from typing_extensions import Self
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    # typing_extensions is a dependency only on Python < 3.11 (see pyproject.toml)
+    from typing_extensions import Self
 
 
 class PipelineBuilder:
@@ -146,15 +150,10 @@ class PipelineBuilder:
             ...     as_field="user"
             ... )
         """
-        # Validate string parameters
-        if not isinstance(from_collection, str) or not from_collection:
-            raise ValueError("from_collection must be a non-empty string")
-        if not isinstance(local_field, str) or not local_field:
-            raise ValueError("local_field must be a non-empty string")
-        if not isinstance(foreign_field, str) or not foreign_field:
-            raise ValueError("foreign_field must be a non-empty string")
-        if not isinstance(as_field, str) or not as_field:
-            raise ValueError("as_field must be a non-empty string")
+        self._validate_non_empty_string(from_collection, "from_collection")
+        self._validate_non_empty_string(local_field, "local_field")
+        self._validate_non_empty_string(foreign_field, "foreign_field")
+        self._validate_non_empty_string(as_field, "as_field")
 
         # Validate pipeline
         if pipeline is not None:
@@ -206,33 +205,20 @@ class PipelineBuilder:
             ...     as_field="team"
             ... )
         """
-        if not isinstance(from_collection, str):
-            raise TypeError("from_collection must be a string")
-        if not from_collection:
-            raise ValueError("from_collection must be a non-empty string")
+        self._validate_non_empty_string(from_collection, "from_collection")
         if let is None:
             raise TypeError("let cannot be None")
         if not isinstance(let, dict):
             raise TypeError("let must be a dict")
-        if not isinstance(as_field, str):
-            raise TypeError("as_field must be a string")
-        if not as_field:
-            raise ValueError("as_field must be a non-empty string")
+        self._validate_non_empty_string(as_field, "as_field")
         if pipeline is None:
             raise TypeError("pipeline cannot be None")
-        if isinstance(pipeline, PipelineBuilder):
-            pipeline = pipeline.build()
-        if not isinstance(pipeline, list):
-            raise TypeError("pipeline must be a list or PipelineBuilder")
-        if not pipeline:
-            raise ValueError("pipeline cannot be empty")
-        if not all(isinstance(stage, dict) for stage in pipeline):
-            raise TypeError("All pipeline stages must be dictionaries")
+        pipeline_list = self._normalize_pipeline(pipeline)
 
         lookup_stage: Dict[str, Any] = {
             "from": from_collection,
             "let": let,
-            "pipeline": pipeline,
+            "pipeline": pipeline_list,
             "as": as_field,
         }
         self._stages.append({"$lookup": lookup_stage})
@@ -271,10 +257,7 @@ class PipelineBuilder:
             >>> sub = PipelineBuilder().match({"source": "x"}).project({"n": 1})
             >>> builder.union_with("stats", sub)
         """
-        if not isinstance(coll, str):
-            raise TypeError("coll must be a string")
-        if not coll:
-            raise ValueError("coll must be a non-empty string")
+        self._validate_non_empty_string(coll, "coll")
         pipeline_list: List[Dict[str, Any]] = []
         if pipeline is not None:
             if isinstance(pipeline, PipelineBuilder):
@@ -422,7 +405,9 @@ class PipelineBuilder:
 
         Raises:
             TypeError: If accumulators is not a dictionary
-            ValueError: If both group_by and accumulators are empty (when group_by is dict/str)
+            ValueError: If accumulators contains an '_id' key (the grouping
+                expression must be passed via group_by), or if both group_by
+                and accumulators are empty (when group_by is dict/str)
 
         Example:
             >>> builder.group(
@@ -436,6 +421,15 @@ class PipelineBuilder:
         """
         if not isinstance(accumulators, dict):
             raise TypeError(f"accumulators must be a dict, got {type(accumulators)}")
+
+        # An '_id' key in accumulators would silently overwrite group_by in
+        # {"_id": group_by, **accumulators}, producing a wrong pipeline.
+        if "_id" in accumulators:
+            raise ValueError(
+                "accumulators cannot contain an '_id' key: it would overwrite the group_by "
+                "expression. Pass the grouping expression via group_by instead, e.g. "
+                "builder.group(group_by=accumulators['_id'], accumulators={...})."
+            )
 
         # Guard against a common mistake: passing {"_id": ...} as group_by.
         # group_by should be the expression that becomes the $group _id.
@@ -551,13 +545,14 @@ class PipelineBuilder:
             Self for method chaining
 
         Raises:
-            TypeError: If limit is not an integer
+            TypeError: If limit is not an integer (bool is rejected explicitly)
             ValueError: If limit is negative
 
         Example:
             >>> builder.limit(10)
         """
-        if not isinstance(limit, int):
+        # bool is a subclass of int; reject it explicitly (limit(True) is a bug)
+        if isinstance(limit, bool) or not isinstance(limit, int):
             raise TypeError(f"limit must be an integer, got {type(limit)}")
         if limit < 0:
             raise ValueError("limit cannot be negative")
@@ -576,13 +571,14 @@ class PipelineBuilder:
             Self for method chaining
 
         Raises:
-            TypeError: If skip is not an integer
+            TypeError: If skip is not an integer (bool is rejected explicitly)
             ValueError: If skip is negative
 
         Example:
             >>> builder.skip(20)
         """
-        if not isinstance(skip, int):
+        # bool is a subclass of int; reject it explicitly (skip(True) is a bug)
+        if isinstance(skip, bool) or not isinstance(skip, int):
             raise TypeError(f"skip must be an integer, got {type(skip)}")
         if skip < 0:
             raise ValueError("skip cannot be negative")
@@ -781,11 +777,16 @@ class PipelineBuilder:
         """
         Add an arbitrary pipeline stage for advanced use cases.
 
+        Empty dict stages are skipped.
+
         Args:
             stage: Dictionary with an arbitrary MongoDB aggregation stage
 
         Returns:
             Self for method chaining
+
+        Raises:
+            TypeError: If stage is None or not a dictionary
 
         Example:
             >>> builder.add_stage({
@@ -795,6 +796,10 @@ class PipelineBuilder:
             ...     }
             ... })
         """
+        if stage is None:
+            raise TypeError("stage cannot be None")
+        if not isinstance(stage, dict):
+            raise TypeError(f"stage must be a dict, got {type(stage)}")
         if stage:
             self._stages.append(stage)
         return self
